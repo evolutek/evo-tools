@@ -1,0 +1,6 @@
+{
+  positions: {
+    open:   { servo: 10, ax12: 200 },
+    closed: { servo: 90, ax12: 600 },
+  },
+}
