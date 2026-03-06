@@ -1,0 +1,11 @@
+{
+  // Override dimensions from platform
+  dimensions: { height: 350 },
+  modules: {
+    propulsion: { can_board_type: 0x04, can_board_id: 1 },
+    actuators: {
+      boards: [{ address_pca: 0x40, frequency: 50 }],
+    },
+  },
+  buses: { i2c: { bus: 1 } },
+}
