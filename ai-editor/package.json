@@ -1,0 +1,26 @@
+{
+  "name": "evo-ai-editor",
+  "version": "1.0.0",
+  "description": "Graph AI editor for Evolutek",
+  "main": "src/main.js",
+  "scripts": {
+    "watch": "webpack --watch",
+    "serve": "webpack serve --open",
+    "build": "webpack"
+  },
+  "keywords": [
+    "Evolutek"
+  ],
+  "author": "Kolte200",
+  "license": "ISC",
+  "devDependencies": {
+    "ts-loader": "^9.5.7",
+    "typescript": "^6.0.2",
+    "webpack": "^5.105.4",
+    "webpack-cli": "^7.0.2",
+    "webpack-dev-server": "^5.2.3"
+  },
+  "dependencies": {
+    "litegraph.js": "file:libs/litegraph.js"
+  }
+}

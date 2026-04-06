@@ -1,0 +1,31 @@
+{
+    nodes: {
+        "grab_items": {
+            actions: [
+
+            ],
+            branch: {
+                method: "has_can",
+                args: {masks: [[1,0,0,1], [1,0,1,0], [0,1,1,0], [0,1,0,1]]},
+                true: {node: "build", args: {}},
+                false: {node: "build", args: {}}
+            }
+        },
+        "": {
+
+        },
+        "": {
+
+        },
+        "": {
+
+        }
+    },
+
+    strategies: {
+        "main": {
+            name: "Principale",
+
+        }
+    }
+}

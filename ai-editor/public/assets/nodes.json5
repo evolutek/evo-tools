@@ -1,0 +1,26 @@
+{
+    nodes: {
+        "move/goto": {
+            title: "Go To",
+            type: "action",
+            parameters: {
+                "magnets": {type: "string"}
+            }
+        },
+
+        "action/toggle_magnets": {
+            title: "Toggle Magnets",
+            type: "action",
+            parameters: {
+                "magnets": {type: "string"}
+            }
+        },
+    },
+
+    categories: {
+        "flow": {
+            title: "Flow",
+            bg_color: ""
+        }
+    }
+}

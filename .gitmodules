@@ -1,0 +1,6 @@
+[submodule "ai-editor/litegraph.js"]
+	path = ai-editor/litegraph.js
+	url = https://github.com/kolte200/litegraph.js.git
+[submodule "ai-editor/libs/litegraph.js"]
+	path = ai-editor/libs/litegraph.js
+	url = https://github.com/kolte200/litegraph.js.git
