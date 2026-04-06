@@ -202,7 +202,7 @@ function new_condition_node(condition_id: string, title: string) {
 */
 
 
-function download(data: string, filename: string) {
+function download(data: string, filename: string): void {
     var file = new Blob([data]);
     var url = URL.createObjectURL( file );
     var element = document.createElement("a");
@@ -212,21 +212,53 @@ function download(data: string, filename: string) {
     document.body.appendChild(element);
     element.click();
     document.body.removeChild(element);
-    setTimeout(function(){ URL.revokeObjectURL( url ); }, 1000*60); //wait one minute to revoke url
+    setTimeout(function(){ URL.revokeObjectURL( url ); }, 1000 * 60); // Wait one minute to revoke url
+}
+
+
+function upload(accepts: string[]): Promise<string> {
+    return new Promise((resolve, reject) => {
+        var element = document.createElement("input") as HTMLInputElement;
+        element.type = "file";
+        element.accept = accepts.join(",");
+        element.style.display = 'none';
+        document.body.appendChild(element);
+        element.addEventListener("change", (event) => {
+            const target = event.target as HTMLInputElement;
+            if (target.files && target.files.length > 0) {
+                const file = target.files[0];
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const result = e.target?.result as string;
+                    resolve(result);
+                };
+                reader.onerror = reject;
+                reader.readAsText(file, 'UTF-8');
+            } else {
+                reject(new Error("No file selected"));
+            }
+        });
+        element.click();
+        document.body.removeChild(element);
+    });
 }
 
 
 class App {
     private editor_manager: GraphEditorManager;
     private map: Map;
-    private dl_ai_btn: HTMLButtonElement;
-    private dl_project_btn: HTMLButtonElement;
+    private export_project_btn: HTMLButtonElement;
+    private import_project_btn: HTMLButtonElement;
+    private export_graph_btn: HTMLButtonElement;
+    private import_types_btn: HTMLButtonElement;
 
     public constructor() {
         this.editor_manager = new GraphEditorManager(document.getElementById("editor_canvas")!! as HTMLCanvasElement);
         this.map = new Map(document.getElementById("table_canvas")!! as HTMLCanvasElement);
-        this.dl_ai_btn = document.getElementById("dl_ai_btn")!! as HTMLButtonElement;
-        this.dl_project_btn = document.getElementById("dl_project_btn")!! as HTMLButtonElement;
+        this.export_project_btn = document.getElementById("export_project_btn")!! as HTMLButtonElement;
+        this.import_project_btn = document.getElementById("import_project_btn")!! as HTMLButtonElement;
+        this.export_graph_btn = document.getElementById("export_graph_btn")!! as HTMLButtonElement;
+        this.import_types_btn = document.getElementById("import_types_btn")!! as HTMLButtonElement;
     }
 
     public main(): void {
@@ -241,12 +273,20 @@ class App {
     }
 
     public init() {
-        this.dl_ai_btn.addEventListener("click", () => {
+        this.export_project_btn.addEventListener("click", () => {
+            this.download_project();
+        });
+
+        this.import_project_btn.addEventListener("click", () => {
+            this.import_project();
+        });
+
+        this.export_graph_btn.addEventListener("click", () => {
             this.download_graph();
         });
 
-        this.dl_project_btn.addEventListener("click", () => {
-            this.download_project();
+        this.import_types_btn.addEventListener("click", () => {
+            this.import_types();
         });
 
         /*
@@ -289,14 +329,29 @@ class App {
         }))
     }
 
-    public download_project() {
+    public async download_project() {
         var data = this.editor_manager.export_project();
         download(data, "project.json");
     }
 
-    public download_graph() {
+    public async download_graph() {
         var data = this.editor_manager.export_graph();
         download(data, "strategies.json");
+    }
+
+    public async import_project() {
+        const data = await upload(["application/json"]);
+        this.editor_manager.import_project(data);
+    }
+
+    public async import_types() {
+        const data = await upload(["application/json"]);
+        this.editor_manager.import_types(data);
+    }
+
+    public async import_graph() {
+        const data = await upload(["application/json"]);
+        // TODO
     }
 }
 

@@ -59,6 +59,11 @@ type OutputSlot = {
 }
 
 
+function get_node_name(node: Node): string {
+    return "node-" + node.id!!;
+}
+
+
 class Node extends BaseNode {
     private input_slots: InputSlot[] = [];
     private output_slots: OutputSlot[] = [];
@@ -124,7 +129,7 @@ class Node extends BaseNode {
             for (const link_id of (this.outputs[i].links || [])) {
                 const link = this.graph!.links[link_id];
                 const target_node = this.graph!!.getNodeById(link.target_id) as Node;
-                const target_node_name = "node-" + target_node.id!!;
+                const target_node_name = get_node_name(target_node);
                 const target_slot_name = target_node.input_slots[link.target_slot].name;
                 links.push(target_node_name + ":" + target_slot_name);
             }
@@ -188,7 +193,7 @@ export class GraphEditorManager {
         let nodes = this.editor.get_nodes();
         for (const node of nodes) {
             const node_config = (node as Node).export();
-            const node_name = "node-" + node.id!!;
+            const node_name = get_node_name(node as Node);
             nodes_config[node_name] = node_config;
         }
 
