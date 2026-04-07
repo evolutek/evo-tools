@@ -1,0 +1,21 @@
+{
+    version: 1,
+    nodes: {
+        "flow/entry": {
+            title: "Entry",
+            flow_outputs: ["next"],
+        },
+        "action/goto": {
+            title: "Goto",
+            flow_inputs: ["flow"],
+            flow_outputs: ["ok", "fail"],
+            value_inputs: [
+                {name: "x", type: "float", default: 0},
+                {name: "y", type: "float", default: 0},
+            ],
+            value_outputs: [
+                {name: "status", type: "enum"},
+            ],
+        }
+    }
+}

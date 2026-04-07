@@ -1,4 +1,4 @@
-export class Map {
+export class Table {
     private canvas: HTMLCanvasElement;
     private context: CanvasRenderingContext2D;
 
@@ -6,17 +6,15 @@ export class Map {
         this.canvas = canvas;
         this.context = canvas.getContext("2d")!!;
 
-        this.canvas.addEventListener("mousemove", (ev) => {
-            console.log(`Move: ${ev.x} ${ev.y}`);
-        })
+        this.canvas.addEventListener("mousemove", this.on_mouse_move);
     }
 
-    public on_mouse_move() {
-        
+    public on_mouse_move(ev: MouseEvent) {
+        console.log(`Move: ${ev.x} ${ev.y}`);
     }
 
     public on_mouse_click() {
-
+        // TODO
     }
 
     public draw() {
