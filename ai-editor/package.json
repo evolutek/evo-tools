@@ -21,6 +21,7 @@
     "webpack-dev-server": "^5.2.3"
   },
   "dependencies": {
+    "json5": "^2.2.3",
     "litegraph.js": "file:libs/litegraph.js"
   }
 }

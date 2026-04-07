@@ -12,36 +12,6 @@ import { GraphEditor, BaseNode } from './editor';
 import * as litegraph from "litegraph.js";
 
 
-/*
-type NodeValueInputDefinition = {
-    name: string,
-    type: any,
-    value: any
-}
-
-
-type NodeValueOutputDefinition = {
-    name: string,
-    type: any
-}
-
-
-class NodeDefinition {
-    public name: string;
-    public title: string;
-    public flow_inputs: string[] = [];
-    public flow_outputs: string[] = [];
-    public value_inputs: NodeValueInputDefinition[] = [];
-    public value_outputs: NodeValueOutputDefinition[] = [];
-
-    constructor(name: string, title: string) {
-        this.name = name;
-        this.title = title;
-    }
-}
-*/
-
-
 enum SlotType {
     FLOW,
     VALUE
@@ -182,11 +152,11 @@ export class GraphEditorManager {
         return this.editor.export();
     }
 
-    public import_project(data: string): void {
+    public import_project(data: any) {
         this.editor.import(data);
     }
 
-    public export_graph(): string {
+    public export_graph(): any {
         let config: any = {};
         let nodes_config: any = {};
 
@@ -199,17 +169,15 @@ export class GraphEditorManager {
 
         config["nodes"] = nodes_config;
 
-        return JSON.stringify(config, null, 4);
+        return config;
     }
 
-    public import_types(data: string) {
-        const config = JSON.parse(data);
-
-        if (config["version"] !== 1) {
+    public import_types(data: any) {
+        if (data["version"] !== 1) {
             throw new Error("Bad node types config version");
         }
 
-        const nodes = config["nodes"];
+        const nodes = data["nodes"];
         for (const [name, node] of Object.entries(nodes)) {
             const parts = name.split('/');
             this.editor.register_node_type(name, parts[0], new_node_type_from_config(node));
