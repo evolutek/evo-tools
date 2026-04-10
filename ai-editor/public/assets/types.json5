@@ -9,13 +9,13 @@
             title: "Goto",
             flow_inputs: ["flow"],
             flow_outputs: ["ok", "fail"],
-            value_inputs: [
-                {name: "x", type: "float", default: 0},
-                {name: "y", type: "float", default: 0},
-            ],
-            value_outputs: [
-                {name: "status", type: "enum"},
-            ],
+            value_inputs: {
+                "x": {type: "float", default: 0},
+                "y": {type: "float", default: 0},
+            },
+            value_outputs: {
+               "status": {type: "enum"},
+            },
         }
     }
 }

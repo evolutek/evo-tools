@@ -60,6 +60,10 @@ export class GraphEditor {
         this.canvas.resize(width, height);
     }
 
+    public clear_registered_node_types() {
+        litegraph.LiteGraph.clearRegisteredTypes()
+    }
+
     public register_node_type(type_path: string, category: string, node: typeof BaseNode) {
         litegraph.LiteGraph.registerNodeType(type_path, node as any);
         node.category = category;
