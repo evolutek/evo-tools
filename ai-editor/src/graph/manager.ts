@@ -48,8 +48,8 @@ class Node extends BaseNode {
 
         const flow_inputs: any[] = node_config["flow_inputs"] || [];
         const flow_outputs: any[] = node_config["flow_outputs"] || [];
-        const value_inputs: any[] = node_config["value_inputs"] || [];
-        const value_outputs: any[] = node_config["value_outputs"] || [];
+        const value_inputs: any[] = node_config["value_inputs"] || {};
+        const value_outputs: any[] = node_config["value_outputs"] || {};
 
         //this.widgets_start_y = LiteGraph.NODE_SLOT_HEIGHT * Math.max(flow_inputs.length, flow_outputs.length);
 
@@ -63,17 +63,15 @@ class Node extends BaseNode {
             this.output_slots.push({type: SlotType.FLOW, name: flow_output});
         }
 
-        for (const value_input of value_inputs) {
+        for (const [slot_name, value_input] of Object.entries(value_inputs)) {
             const type_config = value_input["type"];
-            const slot_name = value_input["name"];
             const value = value_input["default"];
             this.addInput(slot_name, type_config["type"], value);
             this.addWidget("number", slot_name, value);
             this.input_slots.push({type: SlotType.VALUE, name: slot_name, value: value});
         }
 
-        for (const value_output of value_outputs) {
-            const slot_name = value_output["name"];
+        for (const [slot_name, value_output] of Object.entries(value_outputs)) {
             this.addOutput(slot_name, value_output["type"]["type"]);
             this.output_slots.push({type: SlotType.VALUE, name: slot_name});
         }
@@ -176,6 +174,8 @@ export class GraphEditorManager {
         if (data["version"] !== 1) {
             throw new Error("Bad node types config version");
         }
+
+        this.editor.clear_registered_node_types();
 
         const nodes = data["nodes"];
         for (const [name, node] of Object.entries(nodes)) {
