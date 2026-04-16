@@ -1,0 +1,67 @@
+:root {
+    --main-fg-color: #FFFFFF;
+    --main-bg-color: #222222;
+    --title-bg-color: #383838;
+}
+
+* {
+    padding: 0;
+    margin: 0;
+    box-sizing: border-box;
+}
+
+body, html {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    color: var(--main-fg-color);
+    font-family: sans-serif;
+}
+
+body {
+    position: relative;
+    background-color: var(--main-bg-color);
+}
+
+hr {
+    margin: 0.5em 0;
+}
+
+#app_content,#app_dialogs {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+#app_dialogs {
+    display: none;
+    z-index: 2;
+    background-color: rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(5px);
+}
+
+#app_content {
+    display: flex;
+    flex-direction: row;
+    z-index: 1;
+}
+
+#sidebar {
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 auto;
+    width: 25%;
+    min-width: 300px;
+}
+
+#controls_view {
+    flex: 0;
+    padding: 0.5em;
+}
+
+#infos_container {
+    flex: 0;
+    padding: 0.5em;
+}

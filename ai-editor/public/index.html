@@ -4,25 +4,84 @@
         <title>Evolutel AI editor</title>
         <script src="main.js"></script>
         <link rel="stylesheet" href="litegraph.css">
-        <link rel="stylesheet" href="style.css">
+        <link rel="stylesheet" href="assets/styles/main.css">
+        <link rel="stylesheet" href="assets/styles/editor.css">
+        <link rel="stylesheet" href="assets/styles/table.css">
     </head>
     <body>
-        <div id="editor_container">
-            <canvas id="editor_canvas"></canvas>
+        <div id="app_dialogs">
+            <div id="new_graph_dialog">
+                <form id="new_graph_form">
+                    <label for="new_graph_name_input">Name:</div>
+                    <input id="new_graph_name_input" type="text" required />
+                    <input type="submit" value="Create" />
+                    <button>Cancel</button>
+                </form>
+            </div>
         </div>
-        <div id="tools_container">
-            <div id="control_container">
-                <button id="export_project_btn">Export: Project</button>
-                <button id="import_project_btn">Import: Project</button>
-                <button id="export_graph_btn">Export: Graph</button>
-                <button id="import_types_btn">Import: Types</button>
+        <div id="app_content">
+            <div id="editor">
+                <div id="title_bar_view">The best editor :D</div>
+                <div id="tabs_view">
+                    <template id="editor_tab">
+                        <button class="editor_tab_btn">
+                            <span class="editor_tab_name"></span>
+                            <button class="editor_tab_close_btn">X</button>
+                        </button>
+                    </template>
+                    Here tabs will born...
+                </div>
+                <div id="editor_view">
+                    <canvas id="editor_canvas"></canvas>
+                </div>
             </div>
-            <div id="table_container">
-                <img id="table_img" src="assets/table.svg" alt="the play table" />
-                <canvas id="table_canvas"></canvas>
-            </div>
-            <div id="infos_container">
-                <span>Coordinate: 0 0</span>
+
+            <div id="sidebar">
+                <div id="controls_view">
+                    <button id="export_project_btn">Export project</button>
+                    <button id="import_project_btn">Import project</button>
+                    <button id="export_graph_btn">Export graph</button>
+                    <button id="import_types_btn">Import types</button>
+                </div>
+
+                <hr/>
+
+                <div id="table_view">
+                    <div id="table_bar">
+                        <div id="table_coordinate">Coordinate: <span id="table_coordinate_value">0 0</span></div>
+                        <button id="table_fullscreen_btn">
+                            <img src="assets/icons/fullscreen.svg" alt="fullscreen" />
+                        </button>
+                    </div>
+                    <div id="table_container">
+                        <img id="table_img" src="assets/table.svg" alt="the play table" />
+                        <canvas id="table_canvas"></canvas>
+                    </div>
+                </div>
+
+                <hr/>
+
+                <ul id="infos_view">
+                    <li>Number of nodes: <span id="nb_nodes_lbl">...</span></li>
+                    <li>Number of graphes: <span id="nb_graphes_lbl">...</span></li>
+                </ul>
+
+                <hr/>
+
+                <div id="explorer_view">
+                    <div id="explorer_bar">
+                        <button id="explorer_new_btn">Create</button>
+                    </div>
+                    <hr/>
+                    <div id="explorer_entries">
+                        <template id="explorer_entry">
+                            <button class="explorer_entry_btn">
+                                <span class="explorer_entry_name"></span>
+                                <button class="explorer_entry_delete_btn"></button>
+                            </button>
+                        </template>
+                    </div>
+                </div>
             </div>
         </div>
     </body>
