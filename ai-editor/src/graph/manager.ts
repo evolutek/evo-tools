@@ -34,6 +34,34 @@ function get_node_name(node: Node): string {
 }
 
 
+function argtype_to_widget_type(argtype: string): {name: litegraph.widgetTypes, options: any} {
+    switch (argtype) {
+        case "string":
+            return {name: "text", options: {}};
+        case "float":
+        case "f16":
+        case "f32":
+        case "f64":
+            return {name: "number", options: {}};
+        case "int":
+        case "i8":
+        case "i16":
+        case "i32":
+        case "i64":
+            return {name: "number", options: {step: 1}};
+        case "u8":
+        case "u16":
+        case "u32":
+        case "u64":
+            return {name: "number", options: {min: 0, step: 1}};
+        case "bool":
+            return {name: "toggle", options: {}};
+        default:
+            return {name: "text", options: {}};
+    }
+}
+
+
 class Node extends BaseNode {
     private input_slots: InputSlot[] = [];
     private output_slots: OutputSlot[] = [];
@@ -64,10 +92,11 @@ class Node extends BaseNode {
         }
 
         for (const [slot_name, value_input] of Object.entries(value_inputs)) {
-            const type_config = value_input["type"];
+            const type = value_input["type"];
             const value = value_input["default"];
-            this.addInput(slot_name, type_config["type"], value);
-            this.addWidget("number", slot_name, value);
+            this.addInput(slot_name, type, value);
+            let widget_type = argtype_to_widget_type(type);
+            this.addWidget(widget_type.name, slot_name, value, function(v){}, widget_type.options);
             this.input_slots.push({type: SlotType.VALUE, name: slot_name, value: value});
         }
 
