@@ -1,4 +1,4 @@
-import { Table } from './table';
+import { Table } from './views/table';
 import { GraphEditorManager } from './graph/manager';
 
 import JSON5 from 'json5'
@@ -92,26 +92,36 @@ function upload(accepts: string[]): Promise<UploadedFile> {
 }
 
 
+class EditorTab {
+
+}
+
+
 class App {
     private editor_manager: GraphEditorManager;
-    private map: Table;
+    private table: Table;
+    private tabs: EditorTab[] = [];
+
+    // HTML elements
     private export_project_btn: HTMLButtonElement;
     private import_project_btn: HTMLButtonElement;
     private export_graph_btn: HTMLButtonElement;
     private import_types_btn: HTMLButtonElement;
+    private editor_tabs: HTMLDivElement;
 
     public constructor() {
         this.editor_manager = new GraphEditorManager(document.getElementById("editor_canvas")!! as HTMLCanvasElement);
-        this.map = new Table(document.getElementById("table_canvas")!! as HTMLCanvasElement);
+        this.table = new Table(document.getElementById("table_canvas")!! as HTMLCanvasElement);
         this.export_project_btn = document.getElementById("export_project_btn")!! as HTMLButtonElement;
         this.import_project_btn = document.getElementById("import_project_btn")!! as HTMLButtonElement;
         this.export_graph_btn = document.getElementById("export_graph_btn")!! as HTMLButtonElement;
         this.import_types_btn = document.getElementById("import_types_btn")!! as HTMLButtonElement;
+        this.editor_tabs = document.getElementById("editor_tabs")!! as HTMLDivElement;
     }
 
     public async main() {
         await this.init();
-        this.map.start();
+        this.table.start();
         this.editor_manager.get_editor().start();
     }
 
