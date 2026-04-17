@@ -185,16 +185,13 @@ export class GraphEditorManager {
 
     public export_graph(): any {
         let config: any = {};
-        let nodes_config: any = {};
 
         let nodes = this.editor.get_nodes();
         for (const node of nodes) {
             const node_config = (node as Node).export();
             const node_name = get_node_name(node as Node);
-            nodes_config[node_name] = node_config;
+            config[node_name] = node_config;
         }
-
-        config["nodes"] = nodes_config;
 
         return config;
     }
