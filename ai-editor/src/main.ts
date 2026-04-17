@@ -62,32 +62,45 @@ type UploadedFile = {
 
 function upload(accepts: string[]): Promise<UploadedFile> {
     return new Promise((resolve, reject) => {
-        var element = document.createElement("input") as HTMLInputElement;
+        const element = document.createElement("input") as HTMLInputElement;
         element.type = "file";
         element.accept = accepts.join(",");
         element.style.display = 'none';
-        document.body.appendChild(element);
+
+        const cleanup = () => {
+            if (element.parentNode) element.parentNode.removeChild(element);
+        };
+
         element.addEventListener("change", (event) => {
             const target = event.target as HTMLInputElement;
             if (target.files && target.files.length > 0) {
                 const file = target.files[0];
-                file.name
                 const reader = new FileReader();
                 reader.onload = (e) => {
+                    cleanup();
                     resolve({
                         content: (e.target?.result as string),
                         filename: file.name,
                         type: file.type
                     });
                 };
-                reader.onerror = reject;
+                reader.onerror = (err) => {
+                    cleanup();
+                    reject(err);
+                };
                 reader.readAsText(file, 'UTF-8');
             } else {
+                cleanup();
                 reject(new Error("No file selected"));
             }
         });
+        element.addEventListener("cancel", () => {
+            cleanup();
+            reject(new Error("File upload cancelled"));
+        });
+
+        document.body.appendChild(element);
         element.click();
-        document.body.removeChild(element);
     });
 }
 
