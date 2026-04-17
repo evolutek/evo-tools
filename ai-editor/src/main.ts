@@ -111,7 +111,7 @@ class App {
 
     public constructor() {
         this.editor_manager = new GraphEditorManager(document.getElementById("editor_canvas")!! as HTMLCanvasElement);
-        this.table = new Table(document.getElementById("table_canvas")!! as HTMLCanvasElement);
+        this.table = new Table();
         this.export_project_btn = document.getElementById("export_project_btn")!! as HTMLButtonElement;
         this.import_project_btn = document.getElementById("import_project_btn")!! as HTMLButtonElement;
         this.export_graph_btn = document.getElementById("export_graph_btn")!! as HTMLButtonElement;
@@ -154,7 +154,13 @@ class App {
 
     public async download_graph() {
         var data = this.editor_manager.export_graph();
-        download(JSON5.stringify(data, null, 4), "graph.json5");
+        var config = {
+            "version": 1,
+            "graphes": {
+                "main": data
+            }
+        }
+        download(JSON5.stringify(config, null, 4), "graphes.json5");
     }
 
     public async import_project() {
