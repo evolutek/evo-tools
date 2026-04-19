@@ -16,6 +16,15 @@
             value_outputs: {
                "status": {type: "enum"},
             },
-        }
+        },
+        "action/set_side": {
+            title: "Set side",
+            flow_inputs: ["flow"],
+            flow_outputs: ["next"],
+            value_inputs: {
+                // `values` => dropdown (combo widget) instead of free text input.
+                "side": {type: "string", values: ["yellow", "blue"], default: "yellow"},
+            },
+        },
     }
 }

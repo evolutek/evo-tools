@@ -20,6 +20,11 @@ const CONFIG_FILE_EXT_TO_MIME_TYPE: Map<string, string> = new Map([
 const CONFIG_FILE_TYPES = [...CONFIG_MIME_TYPES, ...CONFIG_FILE_EXT_TO_MIME_TYPE.keys()];
 
 
+// localStorage keys for session persistence.
+const STORAGE_KEY_TYPES_CONTENT = "ai-editor.types.content";
+const STORAGE_KEY_TYPES_MIME = "ai-editor.types.mime";
+
+
 function parse_config(data: string, filename?: string, mimetype?: string): any {
     let type = "application/json5";
     if (mimetype && CONFIG_MIME_TYPES.includes(mimetype)) {
@@ -155,9 +160,25 @@ class App {
             this.import_types();
         });
 
-        // Load default node types
-        let r = await fetch("assets/types.json5");
-        this.editor_manager.import_types(parse_config(await r.text(), undefined, "application/json5"));
+        // Load node types: cached from a previous session if present, else the default bundled file.
+        // If the cached payload is corrupt, fall back silently so a bad cache never bricks the app.
+        let loaded_from_cache = false;
+        try {
+            const cached_content = localStorage.getItem(STORAGE_KEY_TYPES_CONTENT);
+            if (cached_content) {
+                const cached_mime = localStorage.getItem(STORAGE_KEY_TYPES_MIME) || "application/json5";
+                this.editor_manager.import_types(parse_config(cached_content, undefined, cached_mime));
+                loaded_from_cache = true;
+            }
+        } catch (err) {
+            console.warn("Cached types failed to load, falling back to default:", err);
+            localStorage.removeItem(STORAGE_KEY_TYPES_CONTENT);
+            localStorage.removeItem(STORAGE_KEY_TYPES_MIME);
+        }
+        if (!loaded_from_cache) {
+            let r = await fetch("assets/types.json5");
+            this.editor_manager.import_types(parse_config(await r.text(), undefined, "application/json5"));
+        }
     }
 
     public async download_project() {
@@ -186,6 +207,13 @@ class App {
         const file = await upload(CONFIG_FILE_TYPES);
         const data = parse_config(file.content, file.filename, file.type);
         this.editor_manager.import_types(data);
+        // Persist raw content so the next session reloads these types without a re-import.
+        try {
+            localStorage.setItem(STORAGE_KEY_TYPES_CONTENT, file.content);
+            localStorage.setItem(STORAGE_KEY_TYPES_MIME, file.type || "application/json5");
+        } catch (err) {
+            console.warn("Could not persist imported types:", err);
+        }
     }
 
     public async import_graph() {
