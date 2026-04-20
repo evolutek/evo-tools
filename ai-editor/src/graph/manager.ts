@@ -94,9 +94,16 @@ class Node extends BaseNode {
         for (const [slot_name, value_input] of Object.entries(value_inputs)) {
             const type = value_input["type"];
             const value = value_input["default"];
+            const allowed_values: any[] | undefined = value_input["values"];
             this.addInput(slot_name, type, value);
-            let widget_type = argtype_to_widget_type(type);
-            this.addWidget(widget_type.name, slot_name, value, function(v){}, widget_type.options);
+            if (Array.isArray(allowed_values) && allowed_values.length > 0) {
+                // Predefined set of values => dropdown instead of free input.
+                const default_value = value !== undefined ? value : allowed_values[0];
+                this.addWidget("combo", slot_name, default_value, function(v){}, {values: allowed_values});
+            } else {
+                const widget_type = argtype_to_widget_type(type);
+                this.addWidget(widget_type.name, slot_name, value, function(v){}, widget_type.options);
+            }
             this.input_slots.push({type: SlotType.VALUE, name: slot_name, value: value});
         }
 

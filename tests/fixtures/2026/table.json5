@@ -1,0 +1,6 @@
+{
+  // Test table
+  saison: 2026,
+  table: { largeur: 3000, profondeur: 2000 },
+  zones: { globales: { grenier: { x: 1500, y: 1775 } } },
+}

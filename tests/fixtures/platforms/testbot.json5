@@ -1,0 +1,6 @@
+{
+  name: "testbot",
+  type: "holonomic",
+  dimensions: { radius: 150, height: 300 },
+  modules: ["propulsion", "actuators"],
+}
