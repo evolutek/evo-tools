@@ -1,3 +1,9 @@
 #explorer_view {
     flex: 0;
 }
+
+.explorer_entry_btn {
+    padding: 0.5em;
+    cursor: pointer;
+    background-color: var(--btn-bg-color);
+}

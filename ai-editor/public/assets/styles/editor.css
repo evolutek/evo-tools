@@ -25,12 +25,27 @@
     position: relative;
 }
 
-#editor_canvas {
+#editor_placeholder, #editor_canvas {
     position: absolute;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
     border: 1px solid;
+    z-index: 1;
+    box-sizing: border-box;
+}
+
+#editor_placeholder {
+    z-index: 1;
+    text-align: center;
+    font-weight: bold;
+    align-content: center;
+}
+
+#editor_canvas {
+    display: none;
+    border: 1px solid;
+    z-index: 2;
     box-sizing: border-box;
 }

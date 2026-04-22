@@ -76,9 +76,13 @@ export class GraphEditor {
         return node;
     }
 
-    public start() {
-        this.graph.start();
+    public clear_nodes() {
+        this.graph.clear();
     }
+
+    // public start() {
+    //     this.graph.start();
+    // }
 
     public export(): any {
         return this.graph.serialize();
