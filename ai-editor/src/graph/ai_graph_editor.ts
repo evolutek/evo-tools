@@ -7,7 +7,7 @@ This manager can:
     exported graph (it's also have node positions and comments blocks)).
 */
 
-import { GraphEditor, BaseNode as GraphNode } from "./graph_editor";
+import { GraphEditor, GraphNode } from "./graph_editor";
 
 import * as litegraph from "litegraph.js";
 
@@ -62,13 +62,10 @@ function argtype_to_widget_type(argtype: string): {
 }
 
 class AIGraphNode extends GraphNode {
-  private input_slots: InputSlot[] = [];
-  private output_slots: OutputSlot[] = [];
+  protected input_slots: InputSlot[] = [];
+  protected output_slots: OutputSlot[] = [];
 
-  protected constructor(node_config: any) {
-    const name: string = node_config["name"];
-    const title: string = node_config["title"] || name;
-
+  public constructor(title: string, name: string, node_config: any = undefined) {
     super(title);
 
     this.type = name;
@@ -163,18 +160,12 @@ class AIGraphNode extends GraphNode {
   }
 }
 
-function new_node_type_from_config(node_config: any): typeof GraphNode {
-  const name: string = node_config["name"];
-  const title: string = node_config["title"] || name;
-
-  return class extends AIGraphNode {
-    public static title: string = title;
-    public static type: string = name;
-
-    public constructor() {
-      super(node_config);
-    }
-  };
+class AISubGraphNode extends AIGraphNode {
+  public constructor(graph: AIGraph) {
+    super(graph.get_name(), graph.get_name(), {});
+    this.input_slots = graph.get_inputs();
+    this.output_slots = graph.get_outputs();
+  }
 }
 
 export class AINodeType {
@@ -187,9 +178,54 @@ export class AINodeType {
   }
 }
 
+// Create a new node type from a config object
+function new_node_type_from_config(name: string, node_config: any): AINodeType {
+  const title: string = node_config["title"] || name;
+
+  const type = class extends AIGraphNode {
+    public static title: string = title;
+    public static type: string = name;
+
+    public constructor() {
+      super(name, title, node_config);
+    }
+  };
+
+  return new AINodeType(name.split("/"), type);
+}
+
+// Create a new subgraph node type from an AIGraph
+function new_node_type_from_graph(graph: AIGraph): AINodeType {
+  const name: string = "subgraph/" + graph.get_name();
+  const title: string = name;
+
+  const type = class extends AISubGraphNode {
+    public static title: string = title;
+    public static type: string = name;
+
+    public constructor() {
+      super(graph);
+    }
+  };
+
+  return new AINodeType(name.split("/"), type);
+}
+
 export class AINodeTypes {
-  public node_types: AINodeType[] = [];
+  private node_types: AINodeType[] = [];
   private raw_data: any = null;
+
+  public get_node_types(): AINodeType[] {
+    return this.node_types;
+  }
+
+  public add_node_type(node_type: AINodeType) {
+    this.node_types.push(node_type);
+  }
+
+  public remove_node_type(node_type: AINodeType) {
+    this.node_types = this.node_types.filter((t) => t !== node_type);
+  }
 
   public import(data: any) {
     if (data["version"] !== 1) {
@@ -201,11 +237,7 @@ export class AINodeTypes {
 
     const nodes = data["nodes"];
     for (const [name, node] of Object.entries(nodes)) {
-      const parts = name.split("/");
-      this.node_types.push({
-        path: parts,
-        type: new_node_type_from_config(node),
-      });
+      this.node_types.push(new_node_type_from_config(name, node));
     }
   }
 
@@ -219,19 +251,35 @@ export class AINodeTypes {
 
 export class AIGraph {
   private name: string;
-  private types: AINodeTypes;
-  public raw_data: any = {};
+  private node_types: AINodeTypes;
+  private self_node_type: AINodeType;
+  private raw_data: any = {};
   private omnissiah_data: any = null;
   private nodes: AIGraphNode[] = [];
   private editor: AIGraphEditor | null = null;
+  private inputs: InputSlot[] = [];
+  private outputs: OutputSlot[] = [];
 
   public constructor(name: string, types: AINodeTypes) {
     this.name = name;
-    this.types = types;
+    this.node_types = types;
+    this.self_node_type = new_node_type_from_graph(this);
   }
 
   public get_name(): string {
     return this.name;
+  }
+
+  public get_inputs(): InputSlot[] {
+    return this.inputs;
+  }
+
+  public get_outputs(): OutputSlot[] {
+    return this.outputs;
+  }
+
+  public get_self_node_type(): AINodeType {
+    return this.self_node_type;
   }
 
   public is_open() {
@@ -240,6 +288,7 @@ export class AIGraph {
 
   public on_open(editor: AIGraphEditor) {
     this.editor = editor;
+    this.editor.get_raw_editor().import(this.raw_data); // Load nodes
   }
 
   public on_close() {
@@ -254,8 +303,8 @@ export class AIGraph {
     if (this.editor.get_open_graph() !== this) {
       throw Error("Graph not currently opened in editor");
     }
-    this.nodes = this.editor.get_editor().get_nodes() as AIGraphNode[];
-    this.raw_data = this.editor.get_editor().export();
+    this.nodes = this.editor.get_raw_editor().get_nodes() as AIGraphNode[];
+    this.raw_data = this.editor.get_raw_editor().export();
   }
 
   public set_editor(editor: AIGraphEditor) {
@@ -263,7 +312,7 @@ export class AIGraph {
   }
 
   public set_node_types(types: AINodeTypes) {
-    this.types = types;
+    this.node_types = types;
     // Update graph on editor
     if (this.editor !== null && this.editor.get_open_graph() === this) {
       this.editor.open_graph(this);
@@ -271,7 +320,7 @@ export class AIGraph {
   }
 
   public get_node_types(): AINodeTypes {
-    return this.types;
+    return this.node_types;
   }
 
   public import_project(data: any) {
@@ -331,7 +380,7 @@ export class AIGraphEditor {
     this.editor = new GraphEditor(canvas);
   }
 
-  public get_editor(): GraphEditor {
+  public get_raw_editor(): GraphEditor {
     return this.editor;
   }
 
@@ -343,12 +392,9 @@ export class AIGraphEditor {
 
     // Set correct node types
     this.editor.clear_registered_node_types();
-    for (const node_type of graph.get_node_types().node_types) {
+    for (const node_type of graph.get_node_types().get_node_types()) {
       this.editor.register_node_type(node_type.path.join("/"), node_type.path[0], node_type.type);
     }
-
-    // Load nodes
-    this.editor.import(graph.raw_data);
 
     graph.on_open(this);
     this.current_graph = graph;

@@ -1,11 +1,10 @@
 import * as litegraph from "litegraph.js";
 
+export abstract class GraphNode extends litegraph.LGraphNode {
+  public static title: string;
+  public static category: string;
 
-export abstract class BaseNode extends litegraph.LGraphNode {
-    public static title: string;
-    public static category: string;
-
-    /*
+  /*
     this.slider = this.addWidget("slider","Slider", 0.5, function(v){}, { min: 0, max: 1} );
 	this.number = this.addWidget("number","Number", 0.5, function(v){}, { min: 0, max: 100} );
 	this.combo = this.addWidget("combo","Combo", "red", function(v){}, { values:["red","green","blue"]} );
@@ -17,38 +16,37 @@ export abstract class BaseNode extends litegraph.LGraphNode {
     this.horizontal = true;
     */
 
-    public constructor(title: string) {
-        super(title);
-        this.serialize_widgets = true;
-    }
+  public constructor(title: string) {
+    super(title);
+    this.serialize_widgets = true;
+  }
 }
 
-
 export class GraphEditor {
-    private canvas: litegraph.LGraphCanvas;
-    private graph: litegraph.LGraph;
+  private canvas: litegraph.LGraphCanvas;
+  private graph: litegraph.LGraph;
 
-    public constructor(canvas: HTMLCanvasElement) {
-        this.graph = new litegraph.LGraph();
-        this.canvas = new litegraph.LGraphCanvas(canvas, this.graph);
+  public constructor(canvas: HTMLCanvasElement) {
+    this.graph = new litegraph.LGraph();
+    this.canvas = new litegraph.LGraphCanvas(canvas, this.graph);
 
-        this.update_editor_hi_dpi_canvas();
+    this.update_editor_hi_dpi_canvas();
 
-        window.addEventListener("resize", () => {
-            this.update_editor_hi_dpi_canvas();
-        });
+    window.addEventListener("resize", () => {
+      this.update_editor_hi_dpi_canvas();
+    });
 
-        litegraph.LiteGraph.clearRegisteredTypes();
-    }
+    litegraph.LiteGraph.clearRegisteredTypes();
+  }
 
-    private update_editor_hi_dpi_canvas() {
-        const ratio = window.devicePixelRatio;
+  private update_editor_hi_dpi_canvas() {
+    const ratio = window.devicePixelRatio;
 
-        const parent = this.canvas.canvas.parentNode! as HTMLElement;
-        const rect = parent.getBoundingClientRect();
-        const { width, height } = rect;
+    const parent = this.canvas.canvas.parentNode! as HTMLElement;
+    const rect = parent.getBoundingClientRect();
+    const { width, height } = rect;
 
-        /*
+    /*
         if(ratio == 1) { return }
         this.canvas.canvas.width = width * ratio;
         this.canvas.canvas.height = height * ratio;
@@ -57,42 +55,42 @@ export class GraphEditor {
         this.canvas.canvas.getContext("2d")!.scale(ratio, ratio);
         */
 
-        this.canvas.resize(width, height);
-    }
+    this.canvas.resize(width, height);
+  }
 
-    public clear_registered_node_types() {
-        litegraph.LiteGraph.clearRegisteredTypes()
-    }
+  public clear_registered_node_types() {
+    litegraph.LiteGraph.clearRegisteredTypes();
+  }
 
-    public register_node_type(type_path: string, category: string, node: typeof BaseNode) {
-        litegraph.LiteGraph.registerNodeType(type_path, node as any);
-        node.category = category;
-    }
+  public register_node_type(type_path: string, category: string, node: typeof GraphNode) {
+    litegraph.LiteGraph.registerNodeType(type_path, node as any);
+    node.category = category;
+  }
 
-    public create_node(type_path: string, x: number, y: number): BaseNode {
-        const node = litegraph.LiteGraph.createNode<BaseNode>(type_path);
-        node.pos = [x, y];
-        this.graph.add(node);
-        return node;
-    }
+  public create_node(type_path: string, x: number, y: number): GraphNode {
+    const node = litegraph.LiteGraph.createNode<GraphNode>(type_path);
+    node.pos = [x, y];
+    this.graph.add(node);
+    return node;
+  }
 
-    public clear_nodes() {
-        this.graph.clear();
-    }
+  public clear_nodes() {
+    this.graph.clear();
+  }
 
-    // public start() {
-    //     this.graph.start();
-    // }
+  // public start() {
+  //     this.graph.start();
+  // }
 
-    public export(): any {
-        return this.graph.serialize();
-    }
+  public export(): any {
+    return this.graph.serialize();
+  }
 
-    public import(data: any) {
-        this.graph.configure(data, false);
-    }
+  public import(data: any) {
+    this.graph.configure(data, false);
+  }
 
-    public get_nodes(): BaseNode[] {
-        return (this.graph as any)._nodes;
-    }
+  public get_nodes(): GraphNode[] {
+    return (this.graph as any)._nodes;
+  }
 }

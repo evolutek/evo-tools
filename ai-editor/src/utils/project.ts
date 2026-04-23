@@ -21,6 +21,7 @@ export class Project {
     const graph = new AIGraph(name, this.node_types);
     this.graphes.set(name, graph);
     this.graph_created_event.emit(graph);
+    this.node_types.add_node_type(graph.get_self_node_type());
     return graph;
   }
 
@@ -28,6 +29,7 @@ export class Project {
     if (this.graphes.has(name)) {
       const graph = this.graphes.get(name)!!;
       this.graphes.delete(name);
+      this.node_types.remove_node_type(graph.get_self_node_type());
       this.graph_deleted_event.emit(graph);
     }
   }
@@ -85,7 +87,9 @@ export class Project {
       const graph = new AIGraph(name, this.node_types);
       graph.import_project(graph_data);
       this.graphes.set(name, graph);
+      this.node_types.add_node_type(graph.get_self_node_type());
     }
+
     this.project_imported_event.emit();
   }
 }
