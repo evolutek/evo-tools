@@ -1,0 +1,34 @@
+{
+    version: 1,
+    graphes: {},
+    types: {
+        version: 1,
+        nodes: {
+            "flow/entry": {
+                title: "Entry",
+                flow_outputs: ["next"],
+            },
+            "action/goto": {
+                title: "Goto",
+                flow_inputs: ["flow"],
+                flow_outputs: ["ok", "fail"],
+                value_inputs: {
+                    "x": {type: "float", default: 0},
+                    "y": {type: "float", default: 0},
+                },
+                value_outputs: {
+                "status": {type: "enum"},
+                },
+            },
+            "action/set_side": {
+                title: "Set side",
+                flow_inputs: ["flow"],
+                flow_outputs: ["next"],
+                value_inputs: {
+                    // `values` => dropdown (combo widget) instead of free text input.
+                    "side": {type: "string", values: ["yellow", "blue"], default: "yellow"},
+                },
+            },
+        }
+    }
+}

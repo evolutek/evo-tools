@@ -1,10 +1,11 @@
 import { Dialog, DialogStatus } from "../utils/dialog";
 import { Editor } from "./editor";
-import { Project } from "../project";
+import { Project } from "../utils/project";
+import { AIGraph } from "../graph/ai_graph_editor";
 
 export class ExplorerEntry {
-  private element: HTMLElement;
-  private name: string;
+  public element: HTMLElement;
+  public name: string;
   private explorer: Explorer;
 
   public constructor(explorer: Explorer, element: HTMLElement, name: string) {
@@ -42,32 +43,59 @@ export class Explorer {
     this.entry_template = document.getElementById("explorer_entry_template")!! as HTMLTemplateElement;
 
     this.create_btn.addEventListener("click", () => this.on_create_btn_clicked());
+
+    this.project.graph_created_event.on((graph) => this.on_graph_created(graph));
+    this.project.graph_deleted_event.on((graph) => this.on_graph_deleted(graph));
+    this.project.project_imported_event.on(() => this.on_project_imported());
   }
 
   private on_create_btn_clicked() {
     this.new_graph_dialog.open().then(({ status, result }) => {
       if (status === DialogStatus.COMPLETED) {
-        this.create_new_graph(result.name);
+        this.project.create_graph(result.name);
       }
     });
   }
 
-  private create_new_graph(name: string) {
+  private add_entry_to_ui(name: string): ExplorerEntry {
     const entry_elem = document.importNode(this.entry_template.content, true).firstElementChild!! as HTMLElement;
-    entry_elem.addEventListener("click", () => entry.open());
+    const entry = new ExplorerEntry(this, entry_elem, name);
+
+    entry_elem.addEventListener("click", (_) => entry.open());
 
     const name_elem = entry_elem.getElementsByClassName("explorer_entry_name")[0];
     name_elem.textContent = name;
 
     const delete_btn = entry_elem.getElementsByClassName("explorer_entry_delete_btn")[0];
-    delete_btn.addEventListener("click", () => entry.delete());
+    delete_btn.addEventListener("click", (ev) => {
+      entry.delete();
+      ev.stopPropagation();
+    });
 
     this.entry_container_elem.appendChild(entry_elem);
-
-    const entry = new ExplorerEntry(this, entry_elem, name);
     this.entries.push(entry);
+    return entry;
+  }
 
-    this.project.create_graph(name);
-    entry.open();
+  public on_graph_created(graph: AIGraph): void {
+    this.add_entry_to_ui(graph.get_name());
+    this.editor.open_graph(graph);
+  }
+
+  public on_graph_deleted(graph: AIGraph): void {
+    const index = this.entries.findIndex((entry) => entry.name === graph.get_name());
+    if (index !== -1) {
+      const entry = this.entries[index];
+      entry.element.remove();
+      this.entries.splice(index, 1);
+    }
+  }
+
+  public on_project_imported(): void {
+    this.entries.forEach((entry) => entry.element.remove());
+    this.entries = [];
+    for (const graph of this.project.get_graphes()) {
+      this.add_entry_to_ui(graph.get_name());
+    }
   }
 }

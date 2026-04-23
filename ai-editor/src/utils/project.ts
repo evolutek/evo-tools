@@ -1,8 +1,13 @@
-import { AIGraph, AINodeTypes } from "./graph/ai_editor";
+import { AIGraph, AINodeTypes } from "../graph/ai_graph_editor";
+import { EventEmitter } from "./event";
 
 export class Project {
   private graphes: Map<string, AIGraph> = new Map<string, AIGraph>();
   private node_types: AINodeTypes = new AINodeTypes();
+
+  public graph_created_event = new EventEmitter<[AIGraph]>();
+  public graph_deleted_event = new EventEmitter<[AIGraph]>();
+  public project_imported_event = new EventEmitter<[]>();
 
   public get_graph_by_name(name: string): AIGraph {
     if (this.graphes.has(name)) {
@@ -15,11 +20,20 @@ export class Project {
   public create_graph(name: string): AIGraph {
     const graph = new AIGraph(name, this.node_types);
     this.graphes.set(name, graph);
+    this.graph_created_event.emit(graph);
     return graph;
   }
 
   public delete_graph(name: string) {
-    this.graphes.delete(name);
+    if (this.graphes.has(name)) {
+      const graph = this.graphes.get(name)!!;
+      this.graphes.delete(name);
+      this.graph_deleted_event.emit(graph);
+    }
+  }
+
+  public get_graphes(): AIGraph[] {
+    return Array.from(this.graphes.values());
   }
 
   public export_project(): any {
@@ -32,7 +46,7 @@ export class Project {
 
     config["version"] = 1;
     config["graphes"] = graphes;
-    config["node_types"] = this.node_types.export();
+    config["types"] = this.node_types.export();
 
     return config;
   }
@@ -64,7 +78,7 @@ export class Project {
       throw new Error("Bad project config version");
     }
 
-    this.import_node_types(data["node_types"]);
+    this.import_node_types(data["types"]);
 
     this.graphes.clear();
     for (const [name, graph_data] of Object.entries(data["graphes"])) {
@@ -72,5 +86,6 @@ export class Project {
       graph.import_project(graph_data);
       this.graphes.set(name, graph);
     }
+    this.project_imported_event.emit();
   }
 }

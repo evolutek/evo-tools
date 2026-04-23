@@ -1,6 +1,6 @@
 import JSON5 from "json5";
 
-import { Project } from "./project";
+import { Project } from "./utils/project";
 
 import { Table } from "./views/table";
 import { Explorer } from "./views/explorer";
@@ -15,14 +15,12 @@ const CONFIG_FILE_EXT_TO_MIME_TYPE: Map<string, string> = new Map([
 ]);
 
 // Combinaison of config mime types and file extentions used as argument of upload(...)
-const CONFIG_FILE_TYPES = [
-  ...CONFIG_MIME_TYPES,
-  ...CONFIG_FILE_EXT_TO_MIME_TYPE.keys(),
-];
+const CONFIG_FILE_TYPES = [...CONFIG_MIME_TYPES, ...CONFIG_FILE_EXT_TO_MIME_TYPE.keys()];
 
-// localStorage keys for session persistence.
-const STORAGE_KEY_TYPES_CONTENT = "ai-editor.types.content";
-const STORAGE_KEY_TYPES_MIME = "ai-editor.types.mime";
+// Configuration
+const STORAGE_KEY_PROJECT = "ai-editor.project";
+const AUTO_SAVE_INTERVAL = 1000;
+const DEFAULT_PROJECT_FILE = "assets/default_project.json5";
 
 function parse_config(data: string, filename?: string, mimetype?: string): any {
   let type = "application/json5";
@@ -129,24 +127,12 @@ class App {
     this.dialogs = new Dialogs();
     this.editor = new Editor();
     this.table = new Table();
-    this.explorer = new Explorer(
-      this.project,
-      this.editor,
-      this.dialogs.new_graph_dialog,
-    );
+    this.explorer = new Explorer(this.project, this.editor, this.dialogs.new_graph_dialog);
 
-    this.export_project_btn = document.getElementById(
-      "export_project_btn",
-    )!! as HTMLButtonElement;
-    this.import_project_btn = document.getElementById(
-      "import_project_btn",
-    )!! as HTMLButtonElement;
-    this.export_graph_btn = document.getElementById(
-      "export_graph_btn",
-    )!! as HTMLButtonElement;
-    this.import_types_btn = document.getElementById(
-      "import_types_btn",
-    )!! as HTMLButtonElement;
+    this.export_project_btn = document.getElementById("export_project_btn")!! as HTMLButtonElement;
+    this.import_project_btn = document.getElementById("import_project_btn")!! as HTMLButtonElement;
+    this.export_graph_btn = document.getElementById("export_graph_btn")!! as HTMLButtonElement;
+    this.import_types_btn = document.getElementById("import_types_btn")!! as HTMLButtonElement;
   }
 
   public async main() {
@@ -172,32 +158,37 @@ class App {
       this.import_types();
     });
 
-    // Load node types: cached from a previous session if present, else the default bundled file.
+    // Load project: cached from a previous session if present, else the default bundled file.
     // If the cached payload is corrupt, fall back silently so a bad cache never bricks the app.
-    let loaded_from_cache = false;
+    let project_loaded_from_cache = false;
     try {
-      const cached_content = localStorage.getItem(STORAGE_KEY_TYPES_CONTENT);
-      if (cached_content) {
-        const cached_mime =
-          localStorage.getItem(STORAGE_KEY_TYPES_MIME) || "application/json5";
-        this.project.import_node_types(
-          parse_config(cached_content, undefined, cached_mime),
-        );
-        loaded_from_cache = true;
+      const cached_project = localStorage.getItem(STORAGE_KEY_PROJECT);
+      if (cached_project) {
+        this.project.import_project(parse_config(cached_project, undefined, "application/json"));
+        project_loaded_from_cache = true;
+        console.log("Loaded project from cache");
       }
     } catch (err) {
-      console.warn(
-        "Cached types failed to load, falling back to default:",
-        err,
-      );
-      localStorage.removeItem(STORAGE_KEY_TYPES_CONTENT);
-      localStorage.removeItem(STORAGE_KEY_TYPES_MIME);
+      console.warn("Cached types failed to load, falling back to default:", err);
+      localStorage.removeItem(STORAGE_KEY_PROJECT);
     }
-    if (!loaded_from_cache) {
-      let r = await fetch("assets/types.json5");
-      this.project.import_node_types(
-        parse_config(await r.text(), undefined, "application/json5"),
-      );
+    if (!project_loaded_from_cache) {
+      let r = await fetch(DEFAULT_PROJECT_FILE);
+      this.project.import_project(parse_config(await r.text(), undefined, "application/json5"));
+      console.log("Loaded project from default file");
+    }
+
+    setInterval(() => {
+      this.save_project_to_cache();
+    }, AUTO_SAVE_INTERVAL);
+  }
+
+  private save_project_to_cache() {
+    try {
+      const data = this.project.export_project();
+      localStorage.setItem(STORAGE_KEY_PROJECT, JSON.stringify(data));
+    } catch (err) {
+      console.warn("Could not save project to cache:", err);
     }
   }
 
@@ -212,31 +203,35 @@ class App {
   }
 
   public async import_project() {
-    const file = await upload(CONFIG_FILE_TYPES);
-    const data = parse_config(file.content, file.filename, file.type);
-    this.project.import_project(data);
+    try {
+      const file = await upload(CONFIG_FILE_TYPES);
+      const data = parse_config(file.content, file.filename, file.type);
+      this.project.import_project(data);
+      this.save_project_to_cache();
+    } catch (err) {
+      console.warn("Could not import project:", err);
+    }
   }
 
   public async import_types() {
-    const file = await upload(CONFIG_FILE_TYPES);
-    const data = parse_config(file.content, file.filename, file.type);
-    this.project.import_node_types(data);
-    // Persist raw content so the next session reloads these types without a re-import.
     try {
-      localStorage.setItem(STORAGE_KEY_TYPES_CONTENT, file.content);
-      localStorage.setItem(
-        STORAGE_KEY_TYPES_MIME,
-        file.type || "application/json5",
-      );
+      const file = await upload(CONFIG_FILE_TYPES);
+      const data = parse_config(file.content, file.filename, file.type);
+      this.project.import_node_types(data);
+      this.save_project_to_cache();
     } catch (err) {
-      console.warn("Could not persist imported types:", err);
+      console.warn("Could not import types:", err);
     }
   }
 
   public async import_omnissiah() {
-    const file = await upload(CONFIG_FILE_TYPES);
-    const data = parse_config(file.content, file.filename, file.type);
-    // TODO
+    try {
+      const file = await upload(CONFIG_FILE_TYPES);
+      const data = parse_config(file.content, file.filename, file.type);
+      // TODO
+    } catch (err) {
+      console.warn("Could not import omnissiah:", err);
+    }
   }
 }
 

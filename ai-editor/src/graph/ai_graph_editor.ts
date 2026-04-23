@@ -137,6 +137,9 @@ class AIGraphNode extends GraphNode {
       let links: string[] = [];
       for (const link_id of this.outputs[i].links || []) {
         const link = this.graph!.links[link_id];
+        if (link === undefined) {
+          continue;
+        }
         const target_node = this.graph!!.getNodeById(link.target_id) as AIGraphNode;
         const target_node_name = get_node_name(target_node);
         const target_slot_name = target_node.input_slots[link.target_slot].name;
@@ -217,7 +220,7 @@ export class AINodeTypes {
 export class AIGraph {
   private name: string;
   private types: AINodeTypes;
-  public raw_data: any = null;
+  public raw_data: any = {};
   private omnissiah_data: any = null;
   private nodes: AIGraphNode[] = [];
   private editor: AIGraphEditor | null = null;

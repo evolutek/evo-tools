@@ -1,4 +1,4 @@
-import { AIGraphEditor, AIGraph } from "../graph/ai_editor";
+import { AIGraphEditor, AIGraph } from "../graph/ai_graph_editor";
 
 export class Editor {
   private title_bar: HTMLElement;
