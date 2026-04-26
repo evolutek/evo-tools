@@ -1,0 +1,15 @@
+[project]
+name = "ll-app-initializer"
+version = "0.1.0"
+description = "Evolutek low level application project intialize"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "lxml>=6.1.0",
+]
+
+[tool.uv]
+package = true
+
+[project.scripts]
+init-ll-app = "main:main"
