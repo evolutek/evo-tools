@@ -306,8 +306,8 @@ def patch_main_c(project_dir_path: Path, ioc: IOC) -> None:
     main_c_file_path.write_text("\n".join(output_lines), encoding = "utf-8")
 
 
-def copy_file(src: Path, dst: Path) -> None:
-    if not dst.exists():
+def copy_file(src: Path, dst: Path, override: bool = False) -> None:
+    if override or not dst.exists():
         print(f"Copy file {src} -> {dst}")
         shutil.copyfile(src, dst)
     else:
@@ -353,7 +353,7 @@ def copy_cmakelists_file(project_dir_path: Path) -> None:
         if not any(["add_subdirectory(evo-ll-core)" in cmake_lists_content.splitlines()]):
             print("CMakeLists.txt exists but do not contains evo-ll-core subdirectory")
             if ask_yes_no("Do you want to override it with the template CMakeLists.txt ? (y/n): "):
-                copy_file(TEMPLATE_CMAKELISTS_FILE, cmake_lists_file_path)
+                copy_file(TEMPLATE_CMAKELISTS_FILE, cmake_lists_file_path, override = True)
 
 
 def copy_template(project_dir_path: Path) -> None:
