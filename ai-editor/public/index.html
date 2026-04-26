@@ -2,24 +2,43 @@
 <html>
     <head>
         <title>Evolutel AI editor</title>
+
         <script src="main.js"></script>
+
         <link rel="stylesheet" href="litegraph.css">
         <link rel="stylesheet" href="assets/styles/main.css">
+        <link rel="stylesheet" href="assets/styles/dialog.css">
         <link rel="stylesheet" href="assets/styles/editor.css">
+        <link rel="stylesheet" href="assets/styles/explorer.css">
         <link rel="stylesheet" href="assets/styles/table.css">
     </head>
     <body>
-        <div id="app_dialogs">
-            <div id="new_graph_dialog">
-                <form id="new_graph_form">
+        <div id="dialog_container">
+            <template id="dialog_template">
+                <div class="dialog">
+                    <div class="dialog_bar">
+                        <div id="dialog_title"></div>
+                        <button id="dialog_close_btn">X</button>
+                    </div>
+                    <div class="dialog_content" id="dialog_content"></div>
+                </div>
+            </template>
+            <template id="dialog_contents">
+                <form id="new_graph_dialog">
                     <label for="new_graph_name_input">Name:</div>
                     <input id="new_graph_name_input" type="text" required />
+                    <button id="new_graph_cancel_btn">Cancel</button>
                     <input type="submit" value="Create" />
-                    <button>Cancel</button>
                 </form>
-            </div>
+                <form id="confirm_dialog">
+                    <div id="confirmation_dialog_text">...</div>
+                    <button id="confirmation_dialog_cancel_btn">Cancel</button>
+                    <input type="submit" value="Confirm" />
+                </form>
+            </template>
         </div>
-        <div id="app_content">
+
+        <div id="app_container">
             <div id="editor">
                 <div id="title_bar_view">The best editor :D</div>
                 <div id="tabs_view">
@@ -32,6 +51,9 @@
                     Here tabs will born...
                 </div>
                 <div id="editor_view">
+                    <div id="editor_placeholder">
+                        <span>Please create or open a graph</span>
+                    </div>
                     <canvas id="editor_canvas"></canvas>
                 </div>
             </div>
@@ -48,13 +70,13 @@
 
                 <div id="table_view">
                     <div id="table_bar">
-                        <div>Coordinate: <span id="table_coordinate_lbl">...</span></div>
+                        <div id="table_coordinate">Coordinate: <span id="table_coordinate_lbl">...</span></div>
                         <button id="table_fullscreen_btn">
                             <img src="assets/icons/fullscreen.svg" alt="fullscreen" />
                         </button>
                     </div>
                     <div id="table_container">
-                        <img id="table_img" src="assets/table.svg" alt="the play table" />
+                        <img id="table_img" src="assets/table/2025.svg" alt="the play table" />
                         <canvas id="table_canvas"></canvas>
                     </div>
                 </div>
@@ -70,15 +92,15 @@
 
                 <div id="explorer_view">
                     <div id="explorer_bar">
-                        <button id="explorer_new_btn">Create</button>
+                        <button id="explorer_create_btn">Create</button>
                     </div>
                     <hr/>
-                    <div id="explorer_entries">
-                        <template id="explorer_entry">
-                            <button class="explorer_entry_btn">
-                                <span class="explorer_entry_name"></span>
-                                <button class="explorer_entry_delete_btn"></button>
-                            </button>
+                    <div id="explorer_entry_container">
+                        <template id="explorer_entry_template">
+                            <div class="explorer_entry_btn">
+                                <button class="explorer_entry_delete_btn">X</button>
+                                <span class="explorer_entry_name">...</span>
+                            </div>
                         </template>
                     </div>
                 </div>

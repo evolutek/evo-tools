@@ -1,0 +1,47 @@
+#dialog_container {
+    position: sticky;
+    display: none;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    margin: 0;
+    z-index: 2;
+    background-color: var(--dialog-container-bg-color);
+    backdrop-filter: blur(5px);
+    overflow: hidden;
+}
+
+.dialog {
+    position: absolute;
+    top: 30%;
+    left: 30%;
+    width: 40%;
+    padding: 0;
+    margin: 0;
+    background-color: var(--main-bg-color);
+}
+
+.dialog_bar {
+    position: relative;
+    height: 2em;
+    padding: 2px;
+    align-content: center;
+    background-color: var(--title-bg-color)
+}
+
+.dialog_title {
+    text-align: center;
+}
+
+.dialog_close_btn {
+    position: absolute;
+    right: 0;
+    top: 0;
+    height: 100%;
+}
+
+.dialog_content {
+    padding: 0.5em;
+}
