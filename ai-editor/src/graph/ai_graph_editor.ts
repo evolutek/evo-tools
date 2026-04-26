@@ -110,7 +110,7 @@ class AIGraphNode extends GraphNode {
     }
 
     for (const [slot_name, value_output] of Object.entries(value_outputs)) {
-      this.addOutput(slot_name, value_output["type"]["type"]);
+      this.addOutput(slot_name, value_output["type"]);
       this.output_slots.push({ type: SlotType.VALUE, name: slot_name });
     }
   }
