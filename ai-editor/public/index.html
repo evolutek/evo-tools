@@ -35,6 +35,63 @@
                     <button id="confirmation_dialog_cancel_btn">Cancel</button>
                     <input type="submit" value="Confirm" />
                 </form>
+
+                <form id="graph_settings_dialog" class="graph_settings_dialog">
+                    <div class="graph_settings_header">
+                        Configuring graph: <span id="graph_settings_graph_name">...</span>
+                    </div>
+
+                    <fieldset class="graph_settings_section">
+                        <legend>Value inputs</legend>
+                        <table class="graph_settings_table" id="graph_settings_value_inputs_table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th><th>Type</th><th>Default</th>
+                                    <th>Allowed values (csv, optional)</th><th></th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                        <button type="button" class="graph_settings_add_btn"
+                                id="graph_settings_value_inputs_add">+ Add value input</button>
+                    </fieldset>
+
+                    <fieldset class="graph_settings_section">
+                        <legend>Value outputs</legend>
+                        <table class="graph_settings_table" id="graph_settings_value_outputs_table">
+                            <thead><tr><th>Name</th><th>Type</th><th></th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                        <button type="button" class="graph_settings_add_btn"
+                                id="graph_settings_value_outputs_add">+ Add value output</button>
+                    </fieldset>
+
+                    <fieldset class="graph_settings_section">
+                        <legend>Flow outputs</legend>
+                        <div class="graph_settings_hint">
+                            Flow input is implicit (single entry "in").
+                        </div>
+                        <table class="graph_settings_table" id="graph_settings_flow_outputs_table">
+                            <thead><tr><th>Name</th><th></th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                        <button type="button" class="graph_settings_add_btn"
+                                id="graph_settings_flow_outputs_add">+ Add flow output</button>
+                    </fieldset>
+
+                    <fieldset class="graph_settings_section">
+                        <legend>Constants (JSON5, hierarchical — same shape as actions.json5 `values:`)</legend>
+                        <textarea id="graph_settings_constants" class="graph_settings_constants"
+                                  spellcheck="false" rows="10"
+                                  placeholder='{ &#10;  positions: { arm: { "11": { up: 270, half: 450 } } }&#10;}'></textarea>
+                        <div class="graph_settings_error" id="graph_settings_constants_error"></div>
+                    </fieldset>
+
+                    <div class="graph_settings_footer">
+                        <button type="button" id="graph_settings_cancel_btn">Cancel</button>
+                        <input type="submit" value="Save" />
+                    </div>
+                </form>
             </template>
         </div>
 

@@ -126,6 +126,7 @@ class App {
 
     this.dialogs = new Dialogs();
     this.editor = new Editor();
+    this.editor.set_graph_settings_dialog(this.dialogs.graph_settings_dialog);
     this.table = new Table();
     this.explorer = new Explorer(this.project, this.editor, this.dialogs.new_graph_dialog);
 

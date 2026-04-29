@@ -27,6 +27,45 @@ type OutputSlot = {
   type: SlotType;
 };
 
+// User-edited per-graph signature. Stored alongside the litegraph raw data
+// in the project file, used to render this graph as a subgraph node in others
+// and to expose its public configuration.
+export type ValueInputDef = {
+  name: string;
+  value_type: string; // "string" | "float" | "int" | "bool" | "u8" | ...
+  default?: any;
+  values?: any[]; // optional allowed-values list (renders as combo)
+};
+
+export type ValueOutputDef = {
+  name: string;
+  value_type: string;
+};
+
+export type FlowOutputDef = {
+  name: string;
+};
+
+// Hierarchical free-form constants tree, mirrors the `values` block of
+// actions.json5 — branches are objects, leaves are primitives.
+export type ConstantsTree = { [key: string]: any };
+
+export type GraphSignature = {
+  value_inputs: ValueInputDef[];
+  value_outputs: ValueOutputDef[];
+  flow_outputs: FlowOutputDef[];
+  constants: ConstantsTree;
+};
+
+function empty_signature(): GraphSignature {
+  return {
+    value_inputs: [],
+    value_outputs: [],
+    flow_outputs: [],
+    constants: {},
+  };
+}
+
 function get_node_name(node: AIGraphNode): string {
   return "node-" + node.id!!;
 }
@@ -162,9 +201,10 @@ class AIGraphNode extends GraphNode {
 
 class AISubGraphNode extends AIGraphNode {
   public constructor(graph: AIGraph) {
-    super(graph.get_name(), graph.get_name(), {});
-    this.input_slots = graph.get_inputs();
-    this.output_slots = graph.get_outputs();
+    // Build a node_config from the graph's user-edited signature so the
+    // subgraph node gets real litegraph slots + widgets — same path as a
+    // regular node imported from node_types.
+    super(graph.get_name(), graph.get_name(), graph.build_node_config());
   }
 }
 
@@ -257,8 +297,7 @@ export class AIGraph {
   private omnissiah_data: any = null;
   private nodes: AIGraphNode[] = [];
   private editor: AIGraphEditor | null = null;
-  private inputs: InputSlot[] = [];
-  private outputs: OutputSlot[] = [];
+  private signature: GraphSignature = empty_signature();
 
   public constructor(name: string, types: AINodeTypes) {
     this.name = name;
@@ -270,12 +309,63 @@ export class AIGraph {
     return this.name;
   }
 
+  // Legacy accessors kept for compatibility — mirror the signature into the
+  // InputSlot/OutputSlot shape used elsewhere. Flow input is implicit ("in").
   public get_inputs(): InputSlot[] {
-    return this.inputs;
+    const inputs: InputSlot[] = [{ name: "in", type: SlotType.FLOW }];
+    for (const v of this.signature.value_inputs) {
+      inputs.push({ name: v.name, type: SlotType.VALUE, value: v.default });
+    }
+    return inputs;
   }
 
   public get_outputs(): OutputSlot[] {
-    return this.outputs;
+    const outputs: OutputSlot[] = [];
+    for (const f of this.signature.flow_outputs) {
+      outputs.push({ name: f.name, type: SlotType.FLOW });
+    }
+    for (const v of this.signature.value_outputs) {
+      outputs.push({ name: v.name, type: SlotType.VALUE });
+    }
+    return outputs;
+  }
+
+  public get_signature(): GraphSignature {
+    return this.signature;
+  }
+
+  // Replace the signature (called from the graph-settings dialog). No need
+  // to regenerate self_node_type: AISubGraphNode reads build_node_config()
+  // on every instantiation, so any subgraph node placed *after* this call
+  // gets the new I/O. Existing instances in other graphs keep their old
+  // slots until the user reopens the graph that contains them.
+  public set_signature(signature: GraphSignature): void {
+    this.signature = signature;
+  }
+
+  // Translate the signature into the same shape as a regular entry of
+  // node_types.json5, so AISubGraphNode can hand it to AIGraphNode and get
+  // matching slots and widgets for free.
+  public build_node_config(): any {
+    const value_inputs: any = {};
+    for (const v of this.signature.value_inputs) {
+      const entry: any = { type: v.value_type };
+      if (v.default !== undefined) entry.default = v.default;
+      if (v.values !== undefined && Array.isArray(v.values) && v.values.length > 0) {
+        entry.values = v.values;
+      }
+      value_inputs[v.name] = entry;
+    }
+    const value_outputs: any = {};
+    for (const v of this.signature.value_outputs) {
+      value_outputs[v.name] = { type: v.value_type };
+    }
+    return {
+      flow_inputs: ["in"],
+      flow_outputs: this.signature.flow_outputs.map((f) => f.name),
+      value_inputs,
+      value_outputs,
+    };
   }
 
   public get_self_node_type(): AINodeType {
@@ -334,6 +424,16 @@ export class AIGraph {
     this.omnissiah_data = data["omnissiah"];
     this.nodes = [];
 
+    // Backwards compat: project files that predate the signature simply
+    // start with an empty one — preserves prior behaviour where graphs
+    // had no exposed I/O.
+    this.signature = {
+      value_inputs: data["value_inputs"] || [],
+      value_outputs: data["value_outputs"] || [],
+      flow_outputs: data["flow_outputs"] || [],
+      constants: data["constants"] || {},
+    };
+
     if (open) {
       this.editor!!.open_graph(this);
     }
@@ -348,6 +448,10 @@ export class AIGraph {
       name: this.name,
       raw: this.raw_data,
       omnissiah: this.export_omnissiah(),
+      value_inputs: this.signature.value_inputs,
+      value_outputs: this.signature.value_outputs,
+      flow_outputs: this.signature.flow_outputs,
+      constants: this.signature.constants,
     };
   }
 
