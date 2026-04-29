@@ -1,9 +1,12 @@
 import { AIGraphEditor, AIGraph } from "../graph/ai_graph_editor";
+import { DialogStatus } from "../utils/dialog";
+import { GraphSettingsDialog } from "./dialogs/graph_settings_dialog";
 
 export class Editor {
   private title_bar: HTMLElement;
   private editor_canvas: HTMLCanvasElement;
   private ai_graph_editor: AIGraphEditor;
+  private graph_settings_dialog: GraphSettingsDialog | null = null;
 
   public constructor() {
     this.title_bar = document.getElementById("title_bar_view")!!;
@@ -15,12 +18,26 @@ export class Editor {
     open_graph_settings_btn.addEventListener("click", (_) => this.open_graph_settings());
   }
 
-  // public start() {
-  //     this.ai_graph_editor.get_editor().start();
-  // }
-  //
+  // Wire-in once the Dialogs container exists. Called from App.
+  public set_graph_settings_dialog(dialog: GraphSettingsDialog) {
+    this.graph_settings_dialog = dialog;
+  }
+
   private open_graph_settings() {
-    //
+    const graph = this.ai_graph_editor.get_open_graph();
+    if (graph === null) {
+      console.warn("No graph open — cannot configure.");
+      return;
+    }
+    if (this.graph_settings_dialog === null) {
+      console.warn("Graph settings dialog not initialised yet.");
+      return;
+    }
+    this.graph_settings_dialog.open_for(graph).then(({ status, result }) => {
+      if (status === DialogStatus.COMPLETED) {
+        graph.set_signature(result);
+      }
+    });
   }
 
   public close_graph() {

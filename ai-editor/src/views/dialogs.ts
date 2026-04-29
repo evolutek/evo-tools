@@ -1,6 +1,7 @@
 import { Dialog, DialogContainer } from "../utils/dialog";
 import { ConfirmDialog } from "./dialogs/confirm_dialog";
 import { NewGraphDialog } from "./dialogs/new_graph_dialog";
+import { GraphSettingsDialog } from "./dialogs/graph_settings_dialog";
 
 
 export class Dialogs {
@@ -10,6 +11,7 @@ export class Dialogs {
 
     public confirm_dialog: Dialog;
     public new_graph_dialog: Dialog;
+    public graph_settings_dialog: GraphSettingsDialog;
 
     public constructor() {
         this.dialog_template = document.getElementById("dialog_template")!! as HTMLTemplateElement;
@@ -21,6 +23,7 @@ export class Dialogs {
 
         this.confirm_dialog = new ConfirmDialog(this.container, this.create_dialog_element(imported_dialog_contents.getElementById("confirm_dialog")!!));
         this.new_graph_dialog = new NewGraphDialog(this.container, this.create_dialog_element(imported_dialog_contents.getElementById("new_graph_dialog")!!));
+        this.graph_settings_dialog = new GraphSettingsDialog(this.container, this.create_dialog_element(imported_dialog_contents.getElementById("graph_settings_dialog")!!));
     }
 
     private create_dialog_element(content: HTMLElement): HTMLElement {

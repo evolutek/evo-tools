@@ -45,3 +45,88 @@
 .dialog_content {
     padding: 0.5em;
 }
+
+/* Graph settings dialog: wider + scrollable since it has many fields. */
+.dialog:has(> .dialog_content > .graph_settings_dialog) {
+    top: 5%;
+    left: 15%;
+    width: 70%;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.graph_settings_dialog {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6em;
+}
+
+.graph_settings_header {
+    font-weight: bold;
+    margin-bottom: 0.4em;
+}
+
+.graph_settings_section {
+    border: 1px solid var(--title-bg-color, #555);
+    padding: 0.5em;
+    border-radius: 3px;
+}
+
+.graph_settings_section legend {
+    padding: 0 0.4em;
+    font-weight: bold;
+}
+
+.graph_settings_hint {
+    font-size: 0.85em;
+    opacity: 0.75;
+    margin-bottom: 0.3em;
+}
+
+.graph_settings_table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 0.3em;
+}
+
+.graph_settings_table th,
+.graph_settings_table td {
+    padding: 2px 4px;
+    text-align: left;
+}
+
+.graph_settings_table input,
+.graph_settings_table select {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.graph_settings_add_btn {
+    margin-top: 0.2em;
+}
+
+.graph_settings_remove_btn {
+    width: auto;
+    padding: 0 0.6em;
+}
+
+.graph_settings_constants {
+    width: 100%;
+    box-sizing: border-box;
+    font-family: monospace;
+    font-size: 0.9em;
+}
+
+.graph_settings_error {
+    color: #c33;
+    font-size: 0.85em;
+    min-height: 1em;
+    margin-top: 0.2em;
+}
+
+.graph_settings_footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5em;
+    margin-top: 0.5em;
+}
