@@ -17,8 +17,11 @@ export class Project {
     }
   }
 
+  private resolver = (n: string) => this.graphes.get(n) ?? null;
+
   public create_graph(name: string): AIGraph {
     const graph = new AIGraph(name, this.node_types);
+    graph.set_graph_resolver(this.resolver);
     this.graphes.set(name, graph);
     this.graph_created_event.emit(graph);
     this.node_types.add_node_type(graph.get_self_node_type());
@@ -85,6 +88,7 @@ export class Project {
     this.graphes.clear();
     for (const [name, graph_data] of Object.entries(data["graphes"])) {
       const graph = new AIGraph(name, this.node_types);
+      graph.set_graph_resolver(this.resolver);
       graph.import_project(graph_data);
       this.graphes.set(name, graph);
       this.node_types.add_node_type(graph.get_self_node_type());
