@@ -8,8 +8,15 @@ This manager can:
 */
 
 import { GraphEditor, GraphNode } from "./graph_editor";
+import { EventEmitter } from "../utils/event";
 
 import * as litegraph from "litegraph.js";
+
+// Stable type names matching evo_lib (Kolte's feat/subgraphes branch).
+// One pair per AIGraph: re-registered each time a graph is opened so the
+// entry/exit slots reflect that graph's signature.
+export const ENTRY_NODE_TYPE = "graph:entry";
+export const EXIT_NODE_TYPE = "graph:exit";
 
 enum SlotType {
   FLOW,
@@ -49,6 +56,8 @@ export type FlowOutputDef = {
 // Hierarchical free-form constants tree, mirrors the `values` block of
 // actions.json5 — branches are objects, leaves are primitives.
 export type ConstantsTree = { [key: string]: any };
+
+export type GraphResolver = (name: string) => AIGraph | null;
 
 export type GraphSignature = {
   value_inputs: ValueInputDef[];
@@ -298,6 +307,9 @@ export class AIGraph {
   private nodes: AIGraphNode[] = [];
   private editor: AIGraphEditor | null = null;
   private signature: GraphSignature = empty_signature();
+  private graph_resolver: GraphResolver | null = null;
+
+  public signature_changed_event = new EventEmitter<[AIGraph]>();
 
   public constructor(name: string, types: AINodeTypes) {
     this.name = name;
@@ -334,13 +346,20 @@ export class AIGraph {
     return this.signature;
   }
 
-  // Replace the signature (called from the graph-settings dialog). No need
-  // to regenerate self_node_type: AISubGraphNode reads build_node_config()
-  // on every instantiation, so any subgraph node placed *after* this call
-  // gets the new I/O. Existing instances in other graphs keep their old
-  // slots until the user reopens the graph that contains them.
   public set_signature(signature: GraphSignature): void {
     this.signature = signature;
+    this.apply_signature_to_entry_exit();
+    this.signature_changed_event.emit(this);
+  }
+
+  private apply_signature_to_entry_exit() {
+    if (this.editor === null || this.editor.get_open_graph() !== this) return;
+    const raw = this.editor.get_raw_editor();
+    const nodes = raw.get_nodes() as AIGraphNode[];
+    for (const node of nodes) {
+      if (node.type === ENTRY_NODE_TYPE) sync_entry_slots(node as any, this.signature);
+      else if (node.type === EXIT_NODE_TYPE) sync_exit_slots(node as any, this.signature);
+    }
   }
 
   // Translate the signature into the same shape as a regular entry of
@@ -372,13 +391,87 @@ export class AIGraph {
     return this.self_node_type;
   }
 
+  // Inside the subgraph: the entry node exposes signature.value_inputs as
+  // value_outputs so other nodes can wire them. Symmetric of build_node_config.
+  public build_entry_config(): any {
+    const value_outputs: any = {};
+    for (const v of this.signature.value_inputs) {
+      value_outputs[v.name] = { type: v.value_type };
+    }
+    return {
+      title: "Entry",
+      flow_inputs: [],
+      flow_outputs: ["next"],
+      value_inputs: {},
+      value_outputs,
+    };
+  }
+
+  // Inside the subgraph: the exit node receives the flow_outputs and
+  // value_outputs declared in the signature, to feed them back to the caller.
+  public build_exit_config(): any {
+    const value_inputs: any = {};
+    for (const v of this.signature.value_outputs) {
+      value_inputs[v.name] = { type: v.value_type };
+    }
+    return {
+      title: "Exit",
+      flow_inputs: this.signature.flow_outputs.map((f) => f.name),
+      flow_outputs: [],
+      value_inputs,
+      value_outputs: {},
+    };
+  }
+
+  public get_entry_node_type(): AINodeType {
+    return new_node_type_from_config(ENTRY_NODE_TYPE, this.build_entry_config());
+  }
+
+  public get_exit_node_type(): AINodeType {
+    return new_node_type_from_config(EXIT_NODE_TYPE, this.build_exit_config());
+  }
+
   public is_open() {
     return this.editor !== null && this.editor.get_open_graph() === this;
+  }
+
+  public set_graph_resolver(resolver: GraphResolver): void {
+    this.graph_resolver = resolver;
   }
 
   public on_open(editor: AIGraphEditor) {
     this.editor = editor;
     this.editor.get_raw_editor().import(this.raw_data); // Load nodes
+    this.ensure_entry_exit_nodes();
+    this.refresh_subgraph_nodes();
+  }
+
+  private ensure_entry_exit_nodes() {
+    if (this.editor === null) return;
+    const raw = this.editor.get_raw_editor();
+    const nodes = raw.get_nodes() as AIGraphNode[];
+    const has_entry = nodes.some((n) => n.type === ENTRY_NODE_TYPE);
+    const has_exit = nodes.some((n) => n.type === EXIT_NODE_TYPE);
+    const needs_exit =
+      this.signature.flow_outputs.length > 0 || this.signature.value_outputs.length > 0;
+
+    if (!has_entry) raw.create_node(ENTRY_NODE_TYPE, 100, 100);
+    if (needs_exit && !has_exit) raw.create_node(EXIT_NODE_TYPE, 600, 100);
+  }
+
+  private refresh_subgraph_nodes() {
+    if (this.editor === null || this.graph_resolver === null) return;
+    const raw = this.editor.get_raw_editor();
+    const nodes = raw.get_nodes() as AIGraphNode[];
+    const prefix = "subgraph/";
+    for (const node of nodes) {
+      const t = node.type;
+      if (typeof t !== "string" || !t.startsWith(prefix)) continue;
+      const target_name = t.substring(prefix.length);
+      const target = this.graph_resolver(target_name);
+      if (target === null) continue;
+      sync_subgraph_node_slots(node as any, target.get_signature());
+    }
   }
 
   public on_close() {
@@ -460,19 +553,32 @@ export class AIGraph {
       this.update_from_editor();
     }
 
-    if (this.nodes.length === 0) {
-      return this.omnissiah_data;
+    const value_inputs: any = {};
+    for (const v of this.signature.value_inputs) {
+      const entry: any = { type: v.value_type };
+      if (v.default !== undefined) entry.default = v.default;
+      value_inputs[v.name] = entry;
     }
 
-    let config: any = {};
-
-    for (const node of this.nodes) {
-      const node_config = (node as AIGraphNode).export();
-      const node_name = get_node_name(node as AIGraphNode);
-      config[node_name] = node_config;
+    const value_outputs: any = {};
+    for (const v of this.signature.value_outputs) {
+      value_outputs[v.name] = { type: v.value_type };
     }
 
-    return config;
+    const flow_outputs: string[] = this.signature.flow_outputs.map((f) => f.name);
+
+    const nodes: any = {};
+    if (this.nodes.length > 0) {
+      for (const node of this.nodes) {
+        const node_config = (node as AIGraphNode).export();
+        const node_name = get_node_name(node as AIGraphNode);
+        nodes[node_name] = node_config;
+      }
+    } else if (this.omnissiah_data !== null) {
+      Object.assign(nodes, this.omnissiah_data);
+    }
+
+    return { value_inputs, value_outputs, flow_outputs, nodes };
   }
 }
 
@@ -494,11 +600,17 @@ export class AIGraphEditor {
       this.current_graph = null;
     }
 
-    // Set correct node types
     this.editor.clear_registered_node_types();
     for (const node_type of graph.get_node_types().get_node_types()) {
       this.editor.register_node_type(node_type.path.join("/"), node_type.path[0], node_type.type);
     }
+
+    // Register graph-specific entry/exit last so they override any same-named
+    // type from node_types — slots reflect *this* graph's signature.
+    const entry_type = graph.get_entry_node_type();
+    this.editor.register_node_type(entry_type.path.join("/"), entry_type.path[0], entry_type.type);
+    const exit_type = graph.get_exit_node_type();
+    this.editor.register_node_type(exit_type.path.join("/"), exit_type.path[0], exit_type.type);
 
     graph.on_open(this);
     this.current_graph = graph;
@@ -515,4 +627,74 @@ export class AIGraphEditor {
   public get_open_graph(): AIGraph | null {
     return this.current_graph;
   }
+}
+
+function sync_entry_slots(node: any, sig: GraphSignature) {
+  const expected = new Map<string, string>();
+  for (const v of sig.value_inputs) expected.set(v.name, v.value_type);
+  const outputs = node.outputs || [];
+  for (let i = outputs.length - 1; i >= 0; i--) {
+    const slot = outputs[i];
+    const exp = expected.get(slot.name);
+    if (exp === undefined || exp !== slot.type) {
+      node.removeOutput(i);
+    } else {
+      expected.delete(slot.name);
+    }
+  }
+  for (const [name, type] of expected) node.addOutput(name, type);
+}
+
+function sync_subgraph_node_slots(node: any, sig: GraphSignature) {
+  const expected_inputs = new Map<string, string>();
+  for (const v of sig.value_inputs) expected_inputs.set(v.name, v.value_type);
+  const inputs = node.inputs || [];
+  for (let i = inputs.length - 1; i >= 0; i--) {
+    const slot = inputs[i];
+    if (slot.type === "flow") continue;
+    const exp = expected_inputs.get(slot.name);
+    if (exp === undefined || exp !== slot.type) node.removeInput(i);
+    else expected_inputs.delete(slot.name);
+  }
+  for (const [name, type] of expected_inputs) node.addInput(name, type);
+
+  const expected_flows = new Set<string>();
+  for (const f of sig.flow_outputs) expected_flows.add(f.name);
+  const expected_values = new Map<string, string>();
+  for (const v of sig.value_outputs) expected_values.set(v.name, v.value_type);
+  const outputs = node.outputs || [];
+  for (let i = outputs.length - 1; i >= 0; i--) {
+    const slot = outputs[i];
+    if (slot.type === "flow") {
+      if (!expected_flows.has(slot.name)) node.removeOutput(i);
+      else expected_flows.delete(slot.name);
+    } else {
+      const exp = expected_values.get(slot.name);
+      if (exp === undefined || exp !== slot.type) node.removeOutput(i);
+      else expected_values.delete(slot.name);
+    }
+  }
+  for (const name of expected_flows) node.addOutput(name, "flow");
+  for (const [name, type] of expected_values) node.addOutput(name, type);
+}
+
+function sync_exit_slots(node: any, sig: GraphSignature) {
+  const expected_flows = new Set<string>();
+  for (const f of sig.flow_outputs) expected_flows.add(f.name);
+  const expected_values = new Map<string, string>();
+  for (const v of sig.value_outputs) expected_values.set(v.name, v.value_type);
+  const inputs = node.inputs || [];
+  for (let i = inputs.length - 1; i >= 0; i--) {
+    const slot = inputs[i];
+    if (slot.type === "flow") {
+      if (!expected_flows.has(slot.name)) node.removeInput(i);
+      else expected_flows.delete(slot.name);
+    } else {
+      const exp = expected_values.get(slot.name);
+      if (exp === undefined || exp !== slot.type) node.removeInput(i);
+      else expected_values.delete(slot.name);
+    }
+  }
+  for (const name of expected_flows) node.addInput(name, "flow");
+  for (const [name, type] of expected_values) node.addInput(name, type);
 }
