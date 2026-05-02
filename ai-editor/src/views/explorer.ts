@@ -3,6 +3,11 @@ import { Editor } from "./editor";
 import { Project } from "../utils/project";
 import { AIGraph } from "../graph/ai_graph_editor";
 
+// Custom MIME type to mark our explorer payload — distinct from `text/plain`
+// so a stray drag from outside the app (text selection, file) doesn't get
+// interpreted as a reorder.
+const DRAG_MIME = "application/x-explorer-entry";
+
 export class ExplorerEntry {
   public element: HTMLElement;
   public name: string;
@@ -46,6 +51,7 @@ export class Explorer {
 
     this.project.graph_created_event.on((graph) => this.on_graph_created(graph));
     this.project.graph_deleted_event.on((graph) => this.on_graph_deleted(graph));
+    this.project.graph_reordered_event.on(() => this.on_graph_reordered());
     this.project.project_imported_event.on(() => this.on_project_imported());
   }
 
@@ -72,9 +78,67 @@ export class Explorer {
       ev.stopPropagation();
     });
 
+    this.attach_dnd_handlers(entry);
+
     this.entry_container_elem.appendChild(entry_elem);
     this.entries.push(entry);
     return entry;
+  }
+
+  // Native HTML5 DnD on each entry. The dragged entry carries its name in a
+  // custom MIME so we can ignore unrelated drags. The dragover handler
+  // computes whether the cursor is in the upper or lower half of the target
+  // to decide insertion position; visual feedback is handled in CSS via the
+  // `drag-over-top` / `drag-over-bottom` classes.
+  private attach_dnd_handlers(entry: ExplorerEntry) {
+    const el = entry.element;
+    el.setAttribute("draggable", "true");
+
+    el.addEventListener("dragstart", (ev) => {
+      if (!ev.dataTransfer) return;
+      ev.dataTransfer.setData(DRAG_MIME, entry.name);
+      ev.dataTransfer.effectAllowed = "move";
+      el.classList.add("dragging");
+    });
+
+    el.addEventListener("dragend", (_) => {
+      el.classList.remove("dragging");
+      this.clear_drag_indicators();
+    });
+
+    el.addEventListener("dragover", (ev) => {
+      if (!ev.dataTransfer || !ev.dataTransfer.types.includes(DRAG_MIME)) return;
+      ev.preventDefault();
+      ev.dataTransfer.dropEffect = "move";
+      const before = this.is_above_midpoint(el, ev.clientY);
+      el.classList.toggle("drag-over-top", before);
+      el.classList.toggle("drag-over-bottom", !before);
+    });
+
+    el.addEventListener("dragleave", (_) => {
+      el.classList.remove("drag-over-top", "drag-over-bottom");
+    });
+
+    el.addEventListener("drop", (ev) => {
+      if (!ev.dataTransfer) return;
+      const source = ev.dataTransfer.getData(DRAG_MIME);
+      el.classList.remove("drag-over-top", "drag-over-bottom");
+      if (!source || source === entry.name) return;
+      ev.preventDefault();
+      const position: "before" | "after" = this.is_above_midpoint(el, ev.clientY) ? "before" : "after";
+      this.project.move_graph(source, entry.name, position);
+    });
+  }
+
+  private is_above_midpoint(el: HTMLElement, client_y: number): boolean {
+    const rect = el.getBoundingClientRect();
+    return client_y < rect.top + rect.height / 2;
+  }
+
+  private clear_drag_indicators() {
+    for (const entry of this.entries) {
+      entry.element.classList.remove("drag-over-top", "drag-over-bottom");
+    }
   }
 
   public on_graph_created(graph: AIGraph): void {
@@ -89,6 +153,21 @@ export class Explorer {
       entry.element.remove();
       this.entries.splice(index, 1);
     }
+  }
+
+  // Reorder existing DOM nodes to match the project's new order. Avoids
+  // tearing down + rebuilding entries, which would lose any per-entry
+  // state and re-trigger animations.
+  public on_graph_reordered(): void {
+    const by_name = new Map(this.entries.map((e) => [e.name, e]));
+    const new_entries: ExplorerEntry[] = [];
+    for (const graph of this.project.get_graphes()) {
+      const entry = by_name.get(graph.get_name());
+      if (entry === undefined) continue;
+      this.entry_container_elem.appendChild(entry.element);
+      new_entries.push(entry);
+    }
+    this.entries = new_entries;
   }
 
   public on_project_imported(): void {
