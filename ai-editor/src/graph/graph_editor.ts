@@ -1,5 +1,23 @@
 import * as litegraph from "litegraph.js";
 
+// HACK: LGraph.configure restores slot.type verbatim, so pre-canonicalization
+// saved graphs carry raw types ("f32" etc.) while fresh slots are canonicalized
+// to "number" by argtype_to_slot_type. Allow numeric ↔ numeric across both.
+// Drop once all saved graphs have been re-exported through the canonicalizer.
+const NUMERIC_SLOT_TYPES = new Set([
+  "number",
+  "float", "f16", "f32", "f64",
+  "int", "i8", "i16", "i32", "i64",
+  "u8", "u16", "u32", "u64",
+]);
+
+const _orig_is_valid = (litegraph.LiteGraph as any).isValidConnection.bind(litegraph.LiteGraph);
+(litegraph.LiteGraph as any).isValidConnection = (a: string, b: string): boolean => {
+  if (_orig_is_valid(a, b)) return true;
+  return NUMERIC_SLOT_TYPES.has(String(a).toLowerCase()) &&
+         NUMERIC_SLOT_TYPES.has(String(b).toLowerCase());
+};
+
 export abstract class GraphNode extends litegraph.LGraphNode {
   public static title: string;
   public static category: string;
