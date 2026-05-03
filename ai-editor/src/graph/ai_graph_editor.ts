@@ -79,6 +79,109 @@ function get_node_name(node: AIGraphNode): string {
   return "node-" + node.id!!;
 }
 
+// Drop links pointing to deleted nodes and inputs whose value is null /
+// undefined. Editor doesn't currently clean those when nodes are removed
+// or when widgets are wired by an upstream link, so the export accumulates
+// dangling refs / null-valued typed inputs that the lib loader rejects.
+type SlotsByKind = { flow: Set<string>; value: Set<string> } | null;
+type SlotResolver = (ntype: string) => SlotsByKind;
+
+function prune_invalid_node_data(
+  nodes: Record<string, any>,
+  graph_name: string,
+  resolve_slots: SlotResolver,
+): void {
+  const known = new Set(Object.keys(nodes));
+  const filter_links = (
+    where: string,
+    bucket_kind: "flow" | "value",
+    links: any[],
+  ): any[] =>
+    links.filter((link) => {
+      if (typeof link !== "string") return true;
+      const [target, target_slot] = link.split(":");
+      if (!known.has(target)) {
+        console.warn(`[${graph_name}] dropped dangling link ${where} → ${link}`);
+        return false;
+      }
+      const slots = resolve_slots(nodes[target].type);
+      if (!slots) return true;
+      const ok = bucket_kind === "flow" ? slots.flow : slots.value;
+      if (!ok.has(target_slot)) {
+        console.warn(`[${graph_name}] dropped slot-type mismatch ${where} → ${link}`);
+        return false;
+      }
+      return true;
+    });
+  for (const [nname, node] of Object.entries(nodes)) {
+    if (node.flow && typeof node.flow === "object") {
+      for (const slot of Object.keys(node.flow)) {
+        if (Array.isArray(node.flow[slot])) {
+          node.flow[slot] = filter_links(`${nname}.${slot}`, "flow", node.flow[slot]);
+        }
+      }
+    }
+    if (node.outputs && typeof node.outputs === "object") {
+      for (const slot of Object.keys(node.outputs)) {
+        if (Array.isArray(node.outputs[slot])) {
+          node.outputs[slot] = filter_links(`${nname}.${slot}`, "value", node.outputs[slot]);
+        }
+      }
+    }
+    if (node.inputs && typeof node.inputs === "object") {
+      for (const key of Object.keys(node.inputs)) {
+        if (node.inputs[key] === null || node.inputs[key] === undefined) {
+          delete node.inputs[key];
+        }
+      }
+    }
+  }
+}
+
+// In-editor → lib-canonical name conventions for subgraph call nodes.
+const SUBGRAPH_TYPE_PREFIX = "subgraph/";
+const CALL_TYPE_PREFIX = "graph:call:";
+
+function canonicalize_subgraph_type(t: string): string {
+  return t.startsWith(SUBGRAPH_TYPE_PREFIX)
+    ? CALL_TYPE_PREFIX + t.substring(SUBGRAPH_TYPE_PREFIX.length)
+    : t;
+}
+
+function canonicalize_subgraph_flow_slot(slot: string): string {
+  return slot === "in" ? "flow" : slot;
+}
+
+// Re-applies fresh-export canonicalizations on the omnissiah_data blob of
+// graphs never opened in the editor.
+function canonicalize_omnissiah_nodes(raw_nodes: any): any {
+  const nodes = structuredClone(raw_nodes ?? {});
+  const call_nodes = new Set<string>();
+  for (const [name, node] of Object.entries<any>(nodes)) {
+    const t = node?.type;
+    if (typeof t === "string" && (t.startsWith(SUBGRAPH_TYPE_PREFIX) || t.startsWith(CALL_TYPE_PREFIX))) {
+      call_nodes.add(name);
+    }
+  }
+  for (const node of Object.values<any>(nodes)) {
+    if (typeof node.type === "string") {
+      node.type = canonicalize_subgraph_type(node.type);
+    }
+    if (node.flow && typeof node.flow === "object") {
+      for (const key of Object.keys(node.flow)) {
+        const links = node.flow[key];
+        if (!Array.isArray(links)) continue;
+        node.flow[key] = links.map((link: any) => {
+          if (typeof link !== "string") return link;
+          const [target, slot] = link.split(":");
+          return call_nodes.has(target) ? target + ":" + canonicalize_subgraph_flow_slot(slot) : link;
+        });
+      }
+    }
+  }
+  return nodes;
+}
+
 function argtype_to_slot_type(argtype: string): string {
   switch (argtype) {
     case "float":
@@ -217,7 +320,13 @@ class AIGraphNode extends GraphNode {
     let j = 0;
     for (let i = 0; i < this.input_slots.length; i++) {
       if (this.input_slots[i].type === SlotType.VALUE) {
-        inputs_config[this.input_slots[i].name] = widgets[j++].value;
+        const value = widgets[j++].value;
+        // Skip null/undefined: lets the lib fall back to the value-input's
+        // type default. Avoids ConfigValidationError on wired inputs whose
+        // widget was never set (e.g. action.arm fed by a graph signature input).
+        if (value !== null && value !== undefined) {
+          inputs_config[this.input_slots[i].name] = value;
+        }
       }
     }
 
@@ -230,7 +339,13 @@ class AIGraphNode extends GraphNode {
         }
         const target_node = this.graph!!.getNodeById(link.target_id) as AIGraphNode;
         const target_node_name = get_node_name(target_node);
-        const target_slot_name = target_node.input_slots[link.target_slot].name;
+        const target_slot = target_node.input_slots[link.target_slot];
+        // Slot-type and dangling-target validation runs centrally in
+        // prune_invalid_node_data (called from AIGraph.export_omnissiah).
+        let target_slot_name = target_slot.name;
+        if (target_node instanceof AISubGraphNode) {
+          target_slot_name = canonicalize_subgraph_flow_slot(target_slot_name);
+        }
         links.push(target_node_name + ":" + target_slot_name);
       }
       const output_slot = this.output_slots[i];
@@ -261,9 +376,7 @@ class AISubGraphNode extends AIGraphNode {
 
   public export(): any {
     const config = super.export();
-    // Editor uses "subgraph/<name>" for menu grouping; the lib registers
-    // call nodes as "graph:call:<name>". Translate at export time.
-    config["type"] = config["type"].replace(/^subgraph\//, "graph:call:");
+    config["type"] = canonicalize_subgraph_type(config["type"]);
     return config;
   }
 }
@@ -639,8 +752,36 @@ export class AIGraph {
     } else if (this.omnissiah_data !== null) {
       // omnissiah_data is the full {value_inputs, value_outputs, flow_outputs, nodes}
       // blob from the imported file. Only the nodes map belongs here.
-      Object.assign(nodes, this.omnissiah_data.nodes ?? {});
+      Object.assign(nodes, canonicalize_omnissiah_nodes(this.omnissiah_data.nodes));
     }
+
+    const types_map: Record<string, any> =
+      (this.node_types as any).raw_data?.nodes ?? {};
+    const resolve_slots: SlotResolver = (ntype: string) => {
+      if (ntype === "graph:entry") return { flow: new Set(), value: new Set() };
+      if (ntype === "graph:exit")
+        return {
+          flow: new Set(this.signature.flow_outputs.map((f) => f.name)),
+          value: new Set(this.signature.value_outputs.map((v) => v.name)),
+        };
+      if (ntype.startsWith("graph:call:")) {
+        const name = ntype.substring("graph:call:".length);
+        const target = this.graph_resolver?.(name);
+        if (target === null || target === undefined) return null;
+        const sig = target.get_signature();
+        return {
+          flow: new Set(["flow"]),
+          value: new Set(sig.value_inputs.map((v) => v.name)),
+        };
+      }
+      const td = types_map[ntype];
+      if (!td) return null;
+      return {
+        flow: new Set(td.flow_inputs ?? []),
+        value: new Set(Object.keys(td.value_inputs ?? {})),
+      };
+    };
+    prune_invalid_node_data(nodes, this.name, resolve_slots);
 
     return { value_inputs, value_outputs, flow_outputs, nodes };
   }
