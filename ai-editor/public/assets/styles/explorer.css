@@ -1,9 +1,43 @@
+/* Take whatever's left in the sidebar. min-height: 0 lifts the default
+ * `min-height: auto` of flex items so the container can actually shrink
+ * below its content size — the prerequisite for the inner scroll to work. */
 #explorer_view {
-    flex: 0;
+    flex: 1 1 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+#explorer_bar {
+    flex: 0 0 auto;
+}
+
+#explorer_entry_container {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
 }
 
 .explorer_entry_btn {
     padding: 0.5em;
-    cursor: pointer;
+    cursor: grab;
     background-color: var(--btn-bg-color);
+    border-top: 2px solid transparent;
+    border-bottom: 2px solid transparent;
+}
+
+.explorer_entry_btn:active {
+    cursor: grabbing;
+}
+
+.explorer_entry_btn.dragging {
+    opacity: 0.4;
+}
+
+.explorer_entry_btn.drag-over-top {
+    border-top-color: var(--accent-color, #4a9eff);
+}
+
+.explorer_entry_btn.drag-over-bottom {
+    border-bottom-color: var(--accent-color, #4a9eff);
 }
