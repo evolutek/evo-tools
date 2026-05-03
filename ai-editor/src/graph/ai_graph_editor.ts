@@ -198,6 +198,10 @@ function argtype_to_slot_type(argtype: string): string {
     case "u32":
     case "u64":
       return "number";
+    case "enum_any":
+      // Polymorphic enum slot — must be wire-compatible with concrete `enum`
+      // slots emitted by typed enum value_outputs (e.g. cmd:tcs34725:get_color).
+      return "enum";
     default:
       return argtype;
   }
@@ -270,6 +274,10 @@ class AIGraphNode extends GraphNode {
         this.addWidget("combo", slot_name, default_value, function (v) {}, {
           values: allowed_values,
         });
+      } else if (type === "enum_any") {
+        // Empty combo at construction; values populated dynamically when an
+        // upstream enum gets wired (see onConnectionsChange).
+        this.addWidget("combo", slot_name, value, function (v) {}, { values: [] });
       } else {
         const widget_type = argtype_to_widget_type(type);
         this.addWidget(widget_type.name, slot_name, value, function (v) {}, widget_type.options);
@@ -293,7 +301,7 @@ class AIGraphNode extends GraphNode {
     type: number,
     slot_index: number,
     connected: boolean,
-    _link_info: any,
+    link_info: any,
     _io_slot: any,
   ): void {
     if (type !== (litegraph.LiteGraph as any).INPUT) return;
@@ -302,11 +310,45 @@ class AIGraphNode extends GraphNode {
     const widget = ((this as any).widgets as litegraph.IWidget[] | undefined)?.find(
       (w) => w.name === input_slot.name,
     );
-    if (!widget) return;
-    (widget as any).hidden = connected;
-    (widget as any).disabled = connected;
+    if (widget) {
+      (widget as any).hidden = connected;
+      (widget as any).disabled = connected;
+    }
+    if (connected && (this.inputs[slot_index] as any)?.type === "enum") {
+      this._propagate_upstream_enum_choices(link_info);
+    }
     this.size = this.computeSize();
     this.setDirtyCanvas(true, true);
+  }
+
+  // When an upstream `enum` (typed) wire arrives, mirror its name choices on
+  // every still-empty `enum_any` combo on this node — typically the constant
+  // side of compare/eq_enum & compare/ne_enum.
+  private _propagate_upstream_enum_choices(link_info: any): void {
+    if (!link_info || !this.graph) return;
+    const origin_node = this.graph.getNodeById(link_info.origin_id) as AIGraphNode | null;
+    if (!origin_node) return;
+    const origin_slot_name = origin_node.output_slots[link_info.origin_slot]?.name;
+    if (!origin_slot_name) return;
+    const origin_type = origin_node.type;
+    if (typeof origin_type !== "string") return;
+    const node_types = (this.graph as any).ai_node_types as AINodeTypes | undefined;
+    const types_map: Record<string, any> = (node_types as any)?.raw_data?.nodes ?? {};
+    const upstream = types_map[origin_type]?.value_outputs?.[origin_slot_name];
+    const values_map = upstream?.values;
+    if (!values_map || typeof values_map !== "object") return;
+    const choice_names = Object.keys(values_map);
+    if (choice_names.length === 0) return;
+    const widgets = ((this as any).widgets as litegraph.IWidget[] | undefined) ?? [];
+    for (const w of widgets) {
+      if ((w as any).type !== "combo") continue;
+      const opts = (w as any).options ?? {};
+      if (Array.isArray(opts.values) && opts.values.length > 0) continue;
+      (w as any).options = { ...opts, values: choice_names };
+      if ((w as any).value === undefined || (w as any).value === 0 || (w as any).value === "") {
+        (w as any).value = choice_names[0];
+      }
+    }
   }
 
   public export(): any {
@@ -615,7 +657,11 @@ export class AIGraph {
 
   public on_open(editor: AIGraphEditor) {
     this.editor = editor;
-    this.editor.get_raw_editor().import(this.raw_data); // Load nodes
+    const raw = this.editor.get_raw_editor();
+    // Stash node_types on the LGraph so AIGraphNode.onConnectionsChange can
+    // resolve upstream enum metadata without a manual back-reference.
+    (raw as any).ai_node_types = this.node_types;
+    raw.import(this.raw_data); // Load nodes
     this.ensure_entry_exit_nodes();
     this.apply_signature_to_entry_exit();
     this.refresh_subgraph_nodes();
