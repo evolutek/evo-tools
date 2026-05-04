@@ -658,9 +658,7 @@ export class AIGraph {
   public on_open(editor: AIGraphEditor) {
     this.editor = editor;
     const raw = this.editor.get_raw_editor();
-    // Stash node_types on the LGraph so AIGraphNode.onConnectionsChange can
-    // resolve upstream enum metadata without a manual back-reference.
-    (raw as any).ai_node_types = this.node_types;
+    raw.set_ai_node_types(this.node_types);
     raw.import(this.raw_data); // Load nodes
     this.ensure_entry_exit_nodes();
     this.apply_signature_to_entry_exit();
