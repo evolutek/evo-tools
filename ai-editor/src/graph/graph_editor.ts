@@ -1,4 +1,5 @@
 import * as litegraph from "litegraph.js";
+import type { AINodeTypes } from "./ai_graph_editor";
 
 // HACK: LGraph.configure restores slot.type verbatim, so pre-canonicalization
 // saved graphs carry raw types ("f32" etc.) while fresh slots are canonicalized
@@ -112,7 +113,8 @@ export class GraphEditor {
     return (this.graph as any)._nodes;
   }
 
-  public set_ai_node_types(types: any) {
+  // Stash on LGraph so AIGraphNode can reach types via `this.graph` from connection callbacks.
+  public set_ai_node_types(types: AINodeTypes) {
     (this.graph as any).ai_node_types = types;
   }
 }

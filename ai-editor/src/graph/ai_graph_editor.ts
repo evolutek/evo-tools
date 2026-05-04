@@ -182,6 +182,19 @@ function canonicalize_omnissiah_nodes(raw_nodes: any): any {
   return nodes;
 }
 
+// Combo choices from `values: [...]`, `values: {NAME: int}`, or legacy `choices: [...]`.
+function derive_combo_choices(value_def: any): string[] | null {
+  const values = value_def?.values;
+  if (Array.isArray(values) && values.length > 0) return values;
+  if (values && typeof values === "object") {
+    const keys = Object.keys(values);
+    return keys.length > 0 ? keys : null;
+  }
+  const choices = value_def?.choices;
+  if (Array.isArray(choices) && choices.length > 0) return choices;
+  return null;
+}
+
 function argtype_to_slot_type(argtype: string): string {
   switch (argtype) {
     case "float":
@@ -266,17 +279,15 @@ class AIGraphNode extends GraphNode {
     for (const [slot_name, value_input] of Object.entries(value_inputs)) {
       const type = value_input["type"];
       const value = value_input["default"];
-      const allowed_values: any[] | undefined = value_input["values"];
+      const combo_choices = derive_combo_choices(value_input);
       this.addInput(slot_name, argtype_to_slot_type(type), value);
-      if (Array.isArray(allowed_values) && allowed_values.length > 0) {
-        // Predefined set of values => dropdown instead of free input.
-        const default_value = value !== undefined ? value : allowed_values[0];
+      if (combo_choices) {
+        const default_value =
+          value !== undefined && value !== null ? value : combo_choices[0];
         this.addWidget("combo", slot_name, default_value, function (v) {}, {
-          values: allowed_values,
+          values: combo_choices,
         });
       } else if (type === "enum_any") {
-        // Empty combo at construction; values populated dynamically when an
-        // upstream enum gets wired (see onConnectionsChange).
         this.addWidget("combo", slot_name, value, function (v) {}, { values: [] });
       } else {
         const widget_type = argtype_to_widget_type(type);
@@ -321,9 +332,8 @@ class AIGraphNode extends GraphNode {
     this.setDirtyCanvas(true, true);
   }
 
-  // When an upstream `enum` (typed) wire arrives, mirror its name choices on
-  // every still-empty `enum_any` combo on this node — typically the constant
-  // side of compare/eq_enum & compare/ne_enum.
+  // Mirror upstream typed-enum names onto still-empty `enum_any` combos
+  // (compare/eq_enum, compare/ne_enum). Sticky on disconnect by design.
   private _propagate_upstream_enum_choices(link_info: any): void {
     if (!link_info || !this.graph) return;
     const origin_node = this.graph.getNodeById(link_info.origin_id) as AIGraphNode | null;
@@ -333,18 +343,16 @@ class AIGraphNode extends GraphNode {
     const origin_type = origin_node.type;
     if (typeof origin_type !== "string") return;
     const node_types = (this.graph as any).ai_node_types as AINodeTypes | undefined;
-    const types_map: Record<string, any> = (node_types as any)?.raw_data?.nodes ?? {};
-    const upstream = types_map[origin_type]?.value_outputs?.[origin_slot_name];
-    const values_map = upstream?.values;
-    if (!values_map || typeof values_map !== "object") return;
-    const choice_names = Object.keys(values_map);
-    if (choice_names.length === 0) return;
+    const upstream = node_types?.get_node_def(origin_type)?.value_outputs?.[origin_slot_name];
+    const choice_names = derive_combo_choices(upstream);
+    if (!choice_names) return;
     const widgets = ((this as any).widgets as litegraph.IWidget[] | undefined) ?? [];
     for (const w of widgets) {
       if ((w as any).type !== "combo") continue;
       const opts = (w as any).options ?? {};
       if (Array.isArray(opts.values) && opts.values.length > 0) continue;
       (w as any).options = { ...opts, values: choice_names };
+      // `0` / `""` mirror the `default: 0` unset sentinel on `enum_any` inputs.
       if ((w as any).value === undefined || (w as any).value === 0 || (w as any).value === "") {
         (w as any).value = choice_names[0];
       }
@@ -511,6 +519,11 @@ export class AINodeTypes {
       throw new Error("No node types data available");
     }
     return this.raw_data;
+  }
+
+  // Raw node definition by name, or null when unknown / not yet imported.
+  public get_node_def(name: string): any | null {
+    return this.raw_data?.nodes?.[name] ?? null;
   }
 }
 
