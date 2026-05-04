@@ -111,4 +111,8 @@ export class GraphEditor {
   public get_nodes(): GraphNode[] {
     return (this.graph as any)._nodes;
   }
+
+  public set_ai_node_types(types: any) {
+    (this.graph as any).ai_node_types = types;
+  }
 }
