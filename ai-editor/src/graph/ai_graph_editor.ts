@@ -266,17 +266,24 @@ class AIGraphNode extends GraphNode {
     for (const [slot_name, value_input] of Object.entries(value_inputs)) {
       const type = value_input["type"];
       const value = value_input["default"];
-      const allowed_values: any[] | undefined = value_input["values"];
+      const raw_values = value_input["values"];
+      const raw_choices = value_input["choices"];
+      let combo_choices: any[] | null = null;
+      if (Array.isArray(raw_values) && raw_values.length > 0) {
+        combo_choices = raw_values;
+      } else if (raw_values && typeof raw_values === "object") {
+        combo_choices = Object.keys(raw_values);
+      } else if (Array.isArray(raw_choices) && raw_choices.length > 0) {
+        combo_choices = raw_choices;
+      }
       this.addInput(slot_name, argtype_to_slot_type(type), value);
-      if (Array.isArray(allowed_values) && allowed_values.length > 0) {
-        // Predefined set of values => dropdown instead of free input.
-        const default_value = value !== undefined ? value : allowed_values[0];
+      if (combo_choices) {
+        const default_value =
+          value !== undefined && value !== null ? value : combo_choices[0];
         this.addWidget("combo", slot_name, default_value, function (v) {}, {
-          values: allowed_values,
+          values: combo_choices,
         });
       } else if (type === "enum_any") {
-        // Empty combo at construction; values populated dynamically when an
-        // upstream enum gets wired (see onConnectionsChange).
         this.addWidget("combo", slot_name, value, function (v) {}, { values: [] });
       } else {
         const widget_type = argtype_to_widget_type(type);
