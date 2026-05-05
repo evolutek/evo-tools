@@ -663,6 +663,12 @@ export class AIGraph {
     }
     this.nodes = this.editor.get_raw_editor().get_nodes() as AIGraphNode[];
     this.raw_data = this.editor.get_raw_editor().export();
+    // Snapshot now: node refs go stale once another graph opens.
+    const nodes_snapshot: any = {};
+    for (const node of this.nodes) {
+      nodes_snapshot[get_node_name(node)] = (node as AIGraphNode).export();
+    }
+    this.omnissiah_data = { ...(this.omnissiah_data ?? {}), nodes: nodes_snapshot };
   }
 
   public set_editor(editor: AIGraphEditor) {
@@ -743,15 +749,7 @@ export class AIGraph {
     const flow_outputs: string[] = this.signature.flow_outputs.map((f) => f.name);
 
     const nodes: any = {};
-    if (this.nodes.length > 0) {
-      for (const node of this.nodes) {
-        const node_config = (node as AIGraphNode).export();
-        const node_name = get_node_name(node as AIGraphNode);
-        nodes[node_name] = node_config;
-      }
-    } else if (this.omnissiah_data !== null) {
-      // omnissiah_data is the full {value_inputs, value_outputs, flow_outputs, nodes}
-      // blob from the imported file. Only the nodes map belongs here.
+    if (this.omnissiah_data !== null) {
       Object.assign(nodes, canonicalize_omnissiah_nodes(this.omnissiah_data.nodes));
     }
 
