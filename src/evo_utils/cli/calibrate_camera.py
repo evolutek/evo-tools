@@ -63,16 +63,19 @@ def _save_intrinsics(path: str, intrinsics: dict) -> None:
 # ─────────────────────── live (X11 / display required) ───────────────────────
 
 
-def _draw_status(frame: np.ndarray, view_count: int, last_count: int, msg: str) -> np.ndarray:
+def _draw_status(
+    frame: np.ndarray, view_count: int, live_count: int, last_count: int, msg: str
+) -> np.ndarray:
     h = frame.shape[0]
     cv2.rectangle(frame, (0, h - 70), (frame.shape[1], h), (0, 0, 0), -1)
+    color = (0, 255, 0) if live_count >= 10 else (0, 165, 255)
     cv2.putText(
         frame,
-        f"views={view_count}  last_corners={last_count}",
+        f"views={view_count}  live={live_count}  last={last_count}",
         (10, h - 40),
         cv2.FONT_HERSHEY_SIMPLEX,
         0.6,
-        (0, 255, 0),
+        color,
         2,
     )
     cv2.putText(frame, msg, (10, h - 12), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 200, 200), 1)
@@ -92,18 +95,28 @@ def cmd_live(args: argparse.Namespace) -> int:
 
     intrinsics: dict | None = None
     last_count = 0
-    msg = "SPACE=capture  c=compute  s=save  r=reset  q=quit"
+    msg = "SPACE=capture (need >=10 live)  c=compute  s=save  r=reset  q=quit"
 
     try:
         while True:
             frame = cam.capture()
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             marker_corners, marker_ids, _ = detector.detectMarkers(gray)
+            live_count = 0
+            charuco_corners = None
+            charuco_ids = None
             if marker_ids is not None and len(marker_ids) > 0:
                 cv2.aruco.drawDetectedMarkers(frame, marker_corners, marker_ids)
+                ret, charuco_corners, charuco_ids = cv2.aruco.interpolateCornersCharuco(
+                    marker_corners, marker_ids, gray, board
+                )
+                live_count = int(ret) if ret and ret > 0 else 0
+                if live_count > 0:
+                    cv2.aruco.drawDetectedCornersCharuco(frame, charuco_corners, charuco_ids)
 
             cv2.imshow(
-                "calibrate_camera", _draw_status(frame, session.view_count, last_count, msg)
+                "calibrate_camera",
+                _draw_status(frame, session.view_count, live_count, last_count, msg),
             )
             k = cv2.waitKey(1) & 0xFF
             if k == ord("q"):
