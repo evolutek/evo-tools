@@ -1,0 +1,5 @@
+<buildCommand>
+    <name>com.st.stm32cube.ide.cmake.CmakeConfigureProjectBuilder</name>
+    <arguments>
+    </arguments>
+</buildCommand>
