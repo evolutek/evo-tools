@@ -34,13 +34,36 @@ def _add_charuco_args(p: argparse.ArgumentParser) -> None:
 
 
 def _add_camera_args(p: argparse.ArgumentParser) -> None:
-    p.add_argument("--device", required=True, help="V4L2 device path (e.g. /dev/CAM_FACE1)")
+    p.add_argument(
+        "--device",
+        required=True,
+        help="V4L2 device path (/dev/CAM_FACE1) OR HTTP MJPEG URL "
+        "(http://10.10.42.115:8080/stream)",
+    )
     p.add_argument("--width", type=int, default=1280)
     p.add_argument("--height", type=int, default=720)
     p.add_argument("--focus", type=int, default=None, help="Lock focus to this value")
 
 
-def _open_camera(args: argparse.Namespace, logger: Logger) -> UvcCamera:
+class _HttpCapture:
+    def __init__(self, url: str):
+        self._cap = cv2.VideoCapture(url)
+        if not self._cap.isOpened():
+            raise RuntimeError(f"failed to open HTTP stream: {url}")
+
+    def capture(self) -> np.ndarray:
+        ok, frame = self._cap.read()
+        if not ok:
+            raise RuntimeError("HTTP stream: frame grab failed")
+        return frame
+
+    def close(self) -> None:
+        self._cap.release()
+
+
+def _open_source(args: argparse.Namespace, logger: Logger):
+    if args.device.startswith(("http://", "https://", "rtsp://")):
+        return _HttpCapture(args.device)
     cam = UvcCamera(
         name="cal_cam",
         logger=logger,
@@ -84,7 +107,7 @@ def _draw_status(
 
 def cmd_live(args: argparse.Namespace) -> int:
     log = Logger("calibrate_camera.live")
-    cam = _open_camera(args, log)
+    cam = _open_source(args, log)
 
     board = _build_charuco_board(
         args.squares_x, args.squares_y, args.square_mm, args.marker_mm, args.dictionary
@@ -160,7 +183,7 @@ def cmd_live(args: argparse.Namespace) -> int:
 
 def cmd_capture(args: argparse.Namespace) -> int:
     log = Logger("calibrate_camera.capture")
-    cam = _open_camera(args, log)
+    cam = _open_source(args, log)
 
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
