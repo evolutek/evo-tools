@@ -624,7 +624,7 @@ def cmd_extrinsics(args: argparse.Namespace) -> int:
                 )
                 cam.save_calibration()
 
-                t = extrinsics["t_world_camera_mm"]
+                t = extrinsics["t_robot_camera_mm"]
                 print("\n=== EXTRINSICS SAVED ===")
                 print(
                     f"  used {n}/{args.num_frames} frames, reproj rms = {err_px:.3f} px"
@@ -662,8 +662,8 @@ def cmd_verify(args: argparse.Namespace) -> int:
                 cv2.polylines(frame, [pts], True, (0, 255, 0), 2)
                 center = m.corners.mean(axis=0).astype(int)
                 size_mm = EUROBOT_TAG_SIZES_MM.get(m.id, args.marker_size_mm)
-                if m.position_world_mm is not None:
-                    x, y, z = m.position_world_mm
+                if m.position_robot_mm is not None:
+                    x, y, z = m.position_robot_mm
                     label = f"id={m.id} ({size_mm:.0f}mm) ({x:.0f}, {y:.0f}, {z:.0f})"
                 else:
                     label = f"id={m.id} ({size_mm:.0f}mm) (no pose)"
