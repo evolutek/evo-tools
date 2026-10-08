@@ -1,0 +1,12 @@
+schemas/node_modules/
+schemas/package-lock.json
+schemas/bundle3.js
+schemas/diagrams.json
+schemas/results2.json
+schemas/prev2/
+schemas/out/
+schemas/roundtrip-arch.png
+config-validation/venv/
+config-validation/libmaster/
+config-validation/logs/
+config-validation/out.txt
