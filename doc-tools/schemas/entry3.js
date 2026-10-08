@@ -192,6 +192,18 @@ async function flowchart(src) {
   const routes = {};
   const collect = (n) => { for (const e of n.edges || []) routes[e.id] = e; for (const c of n.children || []) collect(c); };
   collect(res);
+  // Segments of every route, so a label never sits on another edge's line.
+  const segRects = [];
+  edges.forEach((e, k) => {
+    const r = routes["e" + k]; if (!r || !r.sections) return;
+    const off = r.container && r.container !== "root" && abs[r.container] ? abs[r.container] : { x: 0, y: 0 };
+    const s = r.sections[0];
+    const p = [s.startPoint, ...(s.bendPoints || []), s.endPoint].map((q) => [q.x + off.x, q.y + off.y]);
+    for (let i = 0; i < p.length - 1; i++) {
+      const [ax, ay] = p[i], [bx, by] = p[i + 1];
+      segRects.push({ k, x: Math.min(ax, bx) - 2, y: Math.min(ay, by) - 2, w: Math.abs(bx - ax) + 4, h: Math.abs(by - ay) + 4 });
+    }
+  });
   edges.forEach((e, k) => {
     const r = routes["e" + k]; if (!r || !r.sections) return;
     // Edge coordinates are relative to the container of the edge's owner node.
@@ -241,7 +253,8 @@ async function flowchart(src) {
           cands.push([mx - lw / 2, pref], [mx - lw / 2, other]);
         }
       }
-      const hit = (x, y) => obstacles.some((o) => x < o.x + o.w + 3 && x + lw > o.x - 3 && y < o.y + o.h + 3 && y + lh > o.y - 3);
+      const overlaps = (o, x, y) => x < o.x + o.w + 3 && x + lw > o.x - 3 && y < o.y + o.h + 3 && y + lh > o.y - 3;
+      const hit = (x, y) => obstacles.some((o) => overlaps(o, x, y)) || segRects.some((o) => o.k !== k && overlaps(o, x, y));
       let [lx, ly] = cands.find(([x, y]) => !hit(x, y)) || cands[0] || [pts[0][0], pts[0][1]];
       obstacles.push({ x: lx, y: ly, w: lw, h: lh });
       const [t] = convertToExcalidrawElements([{ type: "text", x: lx, y: ly,

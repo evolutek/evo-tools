@@ -23,7 +23,7 @@ python3 write.py "$VAULT_SCHEMAS"               # écrit <nom>.excalidraw.md (d�
 node roundtrip.mjs "$VAULT_SCHEMAS"             # contrôle les références internes des dessins
 ```
 
-- **Toujours regarder les aperçus PNG de `prev2/` avant de committer.**
+- **Toujours inspecter les aperçus PNG de `prev2/` avant de committer**, avec la checklist de la section « Schémas » du `AGENTS.md` du vault.
 - **Fermer dans Obsidian les onglets Excalidraw des dessins régénérés** avant de lancer `write.py`. Sinon, le plugin fusionne sa version en mémoire avec le nouveau fichier et duplique les éléments.
 - Un dessin retouché à la main est écrasé par une régénération : reporter les retouches dans le `.mmd`.
 
