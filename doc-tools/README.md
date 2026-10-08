@@ -4,7 +4,9 @@ Outils de la documentation Evolutek (vault Obsidian `evolutek/obsidian-vault`, d
 
 ## `schemas/` : Mermaid vers Excalidraw
 
-Les schémas du vault sont des dessins Excalidraw (`_schemas/evo-*.excalidraw.md`). Leur source est le fichier Mermaid du même nom, qui reste dans le vault : `Evolutek/Logiciel haut niveau 2026/_schemas/sources/<nom>.mmd`. Pour modifier un schéma, on édite son `.mmd` puis on régénère.
+Les schémas du vault sont des dessins Excalidraw (`_schemas/evo-*.excalidraw.md`). Le dessin est la seule source : le vault ne garde pas de Mermaid, et on retouche un schéma existant à la main dans Excalidraw.
+
+Cet outil sert de point de départ pour un nouveau schéma : on l'écrit en Mermaid, on génère un premier dessin, puis on le finit à la main.
 
 - **Organigrammes** : structure lue par Mermaid (épinglé sur 11.12.1), mise en page recalculée par ELK (routage orthogonal, groupes imbriqués), étiquettes placées à côté des flèches (`entry3.js`).
 - **Diagrammes de séquence** : `@excalidraw/mermaid-to-excalidraw`, recoloré.
@@ -16,16 +18,18 @@ Prérequis : Node.js, Python 3, le Chromium de Playwright.
 cd doc-tools/schemas
 npm i && npx playwright install chromium
 npm run build                                   # entry3.js -> bundle3.js (esbuild)
-VAULT_SCHEMAS="<vault>/Evolutek/Logiciel haut niveau 2026/_schemas"
-python3 extract.py "$VAULT_SCHEMAS/sources"     # -> diagrams.json
+python3 extract.py <dossier des .mmd>           # n'importe quel dossier -> diagrams.json
 node convert2.mjs [nom…]                        # -> results2.json + aperçus prev2/<nom>.png
-python3 write.py "$VAULT_SCHEMAS"               # écrit <nom>.excalidraw.md (défaut : ./out)
-node roundtrip.mjs "$VAULT_SCHEMAS"             # contrôle les références internes des dessins
+python3 write.py                                # écrit out/<nom>.excalidraw.md
+node roundtrip.mjs out                          # contrôle les références internes des dessins
 ```
 
-- **Toujours inspecter les aperçus PNG de `prev2/` avant de committer**, avec la checklist de la section « Schémas » du `AGENTS.md` du vault.
-- **Fermer dans Obsidian les onglets Excalidraw des dessins régénérés** avant de lancer `write.py`. Sinon, le plugin fusionne sa version en mémoire avec le nouveau fichier et duplique les éléments.
-- Un dessin retouché à la main est écrasé par une régénération : reporter les retouches dans le `.mmd`.
+1. Écrire le `.mmd` dans un dossier de travail, hors du vault.
+2. Générer, puis inspecter les aperçus PNG de `prev2/` avec la checklist de la section « Schémas » du `AGENTS.md` du vault.
+3. Copier `out/<nom>.excalidraw.md` dans `_schemas/` du vault.
+4. Retoucher à la main dans Excalidraw si besoin.
+
+Ne pas committer le `.mmd` dans le vault.
 
 ## `config-validation/` : validation des configs contre omnissiah
 
