@@ -71,10 +71,10 @@ async function flowchart(src) {
       "elk.algorithm": "layered", "elk.direction": elkDir,
       "elk.edgeRouting": "ORTHOGONAL",
       "elk.hierarchyHandling": "INCLUDE_CHILDREN",
-      "elk.layered.spacing.nodeNodeBetweenLayers": "70",
+      "elk.layered.spacing.nodeNodeBetweenLayers": "90",
       "elk.spacing.nodeNode": "45",
-      "elk.layered.spacing.edgeNodeBetweenLayers": "25",
-      "elk.spacing.edgeNode": "25", "elk.spacing.edgeEdge": "18",
+      "elk.layered.spacing.edgeNodeBetweenLayers": "40",
+      "elk.spacing.edgeNode": "25", "elk.spacing.edgeEdge": "28", "elk.layered.spacing.edgeEdgeBetweenLayers": "22",
       "elk.spacing.edgeLabel": "6",
       "elk.layered.nodePlacement.strategy": "NETWORK_SIMPLEX",
       "elk.layered.crossingMinimization.strategy": "LAYER_SWEEP",
@@ -104,7 +104,12 @@ async function flowchart(src) {
   };
   for (const sg of subgraphs) {
     const n = mk(sg.id);
-    n.layoutOptions = { "elk.padding": `[top=${Math.ceil(info[sg.id].th + 24)},left=22,bottom=22,right=22]` };
+    n.layoutOptions = {
+      "elk.padding": `[top=${Math.ceil(info[sg.id].th + 24)},left=22,bottom=22,right=22]`,
+      "elk.layered.spacing.nodeNodeBetweenLayers": "90",
+      "elk.layered.spacing.edgeNodeBetweenLayers": "40",
+      "elk.spacing.nodeNode": "45",
+    };
     n.width = Math.ceil(info[sg.id].tw + 44);
   }
   // Children follow Mermaid declaration order (a group sits where its first node appears),
@@ -138,10 +143,17 @@ async function flowchart(src) {
     for (const w of adj[u] || []) { if (state[w] === 1 || (!state[w] && hasCycle(w))) return true; }
     state[u] = 2; return false;
   };
-  if (Object.keys(adj).some((u) => !state[u] && hasCycle(u))) {
+  const cyclic = Object.keys(adj).some((u) => !state[u] && hasCycle(u));
+  if (cyclic) {
     root.layoutOptions["elk.layered.considerModelOrder.strategy"] = "NODES_AND_EDGES";
     root.layoutOptions["elk.layered.cycleBreaking.strategy"] = "MODEL_ORDER";
   }
+  // Shared trunks read well for trees (one source fanning out, many sources fanning in),
+  // but become ambiguous when a fanned-out edge lands on a node that also has other parents.
+  const outd = {}, ind = {};
+  edges.forEach((e) => { outd[e.start] = (outd[e.start] || 0) + 1; ind[e.end] = (ind[e.end] || 0) + 1; });
+  const ambiguous = edges.some((e) => outd[e.start] > 1 && ind[e.end] > 1);
+  if (!cyclic && !ambiguous) root.layoutOptions["elk.layered.mergeEdges"] = "true";
   const res = await elk.layout(root);
 
   // Absolute coordinates.
@@ -210,6 +222,22 @@ async function flowchart(src) {
     const ownerOff = r.container && r.container !== "root" && abs[r.container] ? abs[r.container] : { x: 0, y: 0 };
     const s = r.sections[0];
     const pts = [s.startPoint, ...(s.bendPoints || []), s.endPoint].map((p) => [p.x + ownerOff.x, p.y + ownerOff.y]);
+    // Excalidraw scales the arrowhead with the last segment: keep it long enough to show.
+    const MIN_LAST = 28;
+    const n = pts.length;
+    if (n >= 3) {
+      const [ex, ey] = pts[n - 1], [bx, by] = pts[n - 2], [ax, ay] = pts[n - 3];
+      const len = Math.hypot(ex - bx, ey - by);
+      if (len > 0 && len < MIN_LAST) {
+        if (bx === ex && ay === by) {
+          const ny = ey - Math.sign(ey - by) * MIN_LAST;
+          pts[n - 2] = [bx, ny]; pts[n - 3] = [ax, ny];
+        } else if (by === ey && ax === bx) {
+          const nx = ex - Math.sign(ex - bx) * MIN_LAST;
+          pts[n - 2] = [nx, by]; pts[n - 3] = [nx, ay];
+        }
+      }
+    }
     const [x0, y0] = pts[0];
     const id = "a" + k;
     const dotted = e.stroke === "dotted";
